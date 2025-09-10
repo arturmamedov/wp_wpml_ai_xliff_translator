@@ -21,10 +21,11 @@ class Logger
 
         // Create unique session ID
         $this->sessionId = date('Y-m-d_H-i-s');
+        $this->filename = $filename;
 
         // Generate session-specific log file
-        if ($filename) {
-            $cleanFilename = pathinfo($filename, PATHINFO_FILENAME);
+        if ($this->filename) {
+            $cleanFilename = pathinfo($this->filename, PATHINFO_FILENAME);
             $this->logFile = $logDir . '/xliff-translation-' . $this->sessionId . '_' . $cleanFilename . '.log';
         } else {
             $this->logFile = $logDir . '/xliff-translation-' . $this->sessionId . '.log';
@@ -40,10 +41,10 @@ class Logger
         $this->writeLog('INFO', 'PHP Version: ' . PHP_VERSION);
     }
 
-    public function logFileStart(string $filename): void
+    public function logFileStart(): void
     {
-        $this->writeLog('INFO', "Starting file: {$filename}");
-        $this->sessionStats[$filename] = [
+        $this->writeLog('INFO', "Starting file: {$this->filename}");
+        $this->sessionStats[$this->filename] = [
             'start_time' => microtime(true),
             'units_found' => 0,
             'units_translated' => 0,
@@ -53,10 +54,10 @@ class Logger
         ];
     }
 
-    public function logParsingStart(string $filename): void
+    public function logParsingStart(): void
     {
         $this->writeLog('INFO', "========================================");
-        $this->writeLog('INFO', "PARSING XLIFF FILE: {$filename}");
+        $this->writeLog('INFO', "PARSING XLIFF FILE: {$this->filename}");
         $this->writeLog('INFO', "========================================");
     }
 
@@ -166,16 +167,16 @@ class Logger
         $this->writeLog('INFO', "Total units translated: " . ($totalTranslations + $duplicatesApplied));
     }
 
-    public function logUnitsFound(string $filename, int $count): void
+    public function logUnitsFound(int $count): void
     {
-        $this->writeLog('INFO', "Found {$count} translation units in {$filename}");
-        $this->sessionStats[$filename]['units_found'] = $count;
+        $this->writeLog('INFO', "Found {$count} translation units in {$this->filename}");
+        $this->sessionStats[$this->filename]['units_found'] = $count;
     }
 
-    public function logDuplicatesFound(string $filename, int $count, array $examples = []): void
+    public function logDuplicatesFound(int $count, array $examples = []): void
     {
-        $this->writeLog('INFO', "Detected {$count} duplicates in {$filename}");
-        $this->sessionStats[$filename]['duplicates_found'] = $count;
+        $this->writeLog('INFO', "Detected {$count} duplicates in {$this->filename}");
+        $this->sessionStats[$this->filename]['duplicates_found'] = $count;
 
         if (!empty($examples)) {
             $exampleText = implode(', ', array_slice($examples, 0, 3));
@@ -183,7 +184,7 @@ class Logger
         }
     }
 
-    public function logDuplicateDetails(string $filename, array $duplicateGroups): void
+    public function logDuplicateDetails(array $duplicateGroups): void
     {
         if (empty($duplicateGroups)) {
             return;
@@ -219,12 +220,12 @@ class Logger
         }
     }
 
-    public function logLanguageInfo(string $filename, string $sourceLanguage, string $targetLanguage): void
+    public function logLanguageInfo(string $sourceLanguage, string $targetLanguage): void
     {
         $this->writeLog('INFO', "Source language: {$sourceLanguage} → Target language: {$targetLanguage}");
     }
 
-    public function logProcessingComplete(string $filename, array $stats): void
+    public function logProcessingComplete(array $stats): void
     {
         $this->writeLog('INFO', '=== PROCESSING COMPLETE ===');
         $this->writeLog('INFO', "Total units: {$stats['total_units']}");
@@ -232,7 +233,7 @@ class Logger
         $this->writeLog('INFO', "Duplicate groups: {$stats['duplicates']}");
     }
 
-    public function logContentTypeStats(string $filename, array $stats): void
+    public function logContentTypeStats(array $stats): void
     {
         $brandVoice = $stats['brand_voice'] ?? 0;
         $metadata = $stats['metadata'] ?? 0;
@@ -242,30 +243,30 @@ class Logger
             "{$brandVoice} units → Brand Voice | {$metadata} units → Metadata | {$nonTranslatable} units → Non-translatable"
         );
 
-        $this->sessionStats[$filename]['non_translatable'] = $nonTranslatable;
+        $this->sessionStats[$this->filename]['non_translatable'] = $nonTranslatable;
     }
 
-    public function logTranslationStart(string $filename, string $targetLanguage): void
+    public function logTranslationStart(string $targetLanguage): void
     {
         $this->writeLog('INFO', "========================================");
         $this->writeLog('INFO', "STARTING TRANSLATION TO {$targetLanguage}");
         $this->writeLog('INFO', "========================================");
     }
 
-    public function updateTranslationCount(string $filename, int $count): void
+    public function updateTranslationCount(int $count): void
     {
-        if (isset($this->sessionStats[$filename])) {
-            $this->sessionStats[$filename]['units_translated'] = $count;
+        if (isset($this->sessionStats[$this->filename])) {
+            $this->sessionStats[$this->filename]['units_translated'] = $count;
         }
     }
 
-    public function logTranslationSuccess(string $filename, string $targetLanguage, string $outputPath): void
+    public function logTranslationSuccess(string $targetLanguage, string $outputPath): void
     {
         $this->writeLog('SUCCESS', "Translated to {$targetLanguage} → {$outputPath}");
         //$this->sessionStats[$this->filename]['units_translated']++; // TODO: i think this was designed for use this log after each translation
     }
 
-    public function logError(string $filename, string $error, ?array $unit = null): void
+    public function logError(string $error, ?array $unit = null): void
     {
         $this->writeLog('ERROR', $error);
 
@@ -274,20 +275,20 @@ class Logger
             $this->writeLog('ERROR', "Unit ID: {$unitId}");
         }
 
-        $this->sessionStats[$filename]['errors']++;
+        $this->sessionStats[$this->filename]['errors']++;
 
-        if (!in_array($filename, $this->failedFiles)) {
-            $this->failedFiles[] = $filename;
+        if (!in_array($this->filename, $this->failedFiles)) {
+            $this->failedFiles[] = $this->filename;
         }
     }
 
-    public function logFileComplete(string $filename): void
+    public function logFileComplete(): void
     {
-        $stats = $this->sessionStats[$filename];
+        $stats = $this->sessionStats[$this->filename];
         $duration = round(microtime(true) - $stats['start_time'], 2);
 
         $this->writeLog('INFO', "========================================");
-        $this->writeLog('INFO', "FILE PROCESSING COMPLETE: {$filename}");
+        $this->writeLog('INFO', "FILE PROCESSING COMPLETE: {$this->filename}");
         $this->writeLog('INFO', "========================================");
         $this->writeLog('INFO', "Duration: {$duration}s");
         $this->writeLog('INFO', "Units found: {$stats['units_found']}");
@@ -295,12 +296,12 @@ class Logger
         $this->writeLog('INFO', "Duplicates handled: {$stats['duplicates_found']}");
         $this->writeLog('INFO', "Errors: {$stats['errors']}");
     }
-    public function logFileFailure(string $filename, string $reason): void
+    public function logFileFailure(string $reason): void
     {
-        $this->writeLog('ERROR', "File failed: {$filename} - {$reason}");
+        $this->writeLog('ERROR', "File failed: {$this->filename} - {$reason}");
 
-        if (!in_array($filename, $this->failedFiles)) {
-            $this->failedFiles[] = $filename;
+        if (!in_array($this->filename, $this->failedFiles)) {
+            $this->failedFiles[] = $this->filename;
         }
     }
 

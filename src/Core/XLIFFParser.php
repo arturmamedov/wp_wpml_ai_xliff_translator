@@ -47,7 +47,7 @@ class XLIFFParser
             throw new \Exception("XLIFF file not found: {$filePath}");
         }
 
-        $this->logger->logFileStart(basename($filePath));
+        $this->logger->logFileStart();
 
         // Load and validate XLIFF
         if (!$this->dom->load($filePath)) {
@@ -64,7 +64,7 @@ class XLIFFParser
         // MOVED: Log stats after all classification is complete
         $this->logFinalStats();
 
-        $this->logger->logUnitsFound(basename($filePath), count($this->translationUnits));
+        $this->logger->logUnitsFound(count($this->translationUnits));
 
         return $this->getProcessingResults();
     }
@@ -81,7 +81,7 @@ class XLIFFParser
             $stats[$strategy]++;
         }
 
-        $this->logger->logContentTypeStats('current', $stats);
+        $this->logger->logContentTypeStats($stats);
     }
 
     /**
@@ -120,7 +120,7 @@ class XLIFFParser
             $sourceNode = $this->xpath->query('.//xliff:source', $unit)->item(0);
 
             if (!$sourceNode) {
-                $this->logger->logError(basename('current'), "No source found for unit: {$unitId}");
+                $this->logger->logError("No source found for unit: {$unitId}");
                 continue;
             }
 
@@ -237,7 +237,7 @@ class XLIFFParser
                 return substr($this->translationUnits[$id]['source'], 0, 50) . '...';
             }, $examples);
 
-            $this->logger->logDuplicatesFound('current', $duplicateCount, $exampleTexts);
+            $this->logger->logDuplicatesFound($duplicateCount, $exampleTexts);
         }
     }
 
@@ -284,7 +284,7 @@ class XLIFFParser
             }
         }
 
-        $this->logger->logContentTypeStats('current', $stats);
+        $this->logger->logContentTypeStats($stats);
     }
 
     /**
@@ -353,10 +353,10 @@ class XLIFFParser
         }
 
         // Enhanced logging
-        $this->logger->logLanguageInfo('current', $this->sourceLanguage, $this->targetLanguage);
-        $this->logger->logDuplicateDetails('current', $this->duplicateMap);
+        $this->logger->logLanguageInfo($this->sourceLanguage, $this->targetLanguage);
+        $this->logger->logDuplicateDetails($this->duplicateMap);
         $this->logger->logContentSamples($results);
-        $this->logger->logProcessingComplete('current', $results['stats']);
+        $this->logger->logProcessingComplete($results['stats']);
 
         return $results;
     }
@@ -462,7 +462,7 @@ class XLIFFParser
         $result = $this->dom->save($outputPath);
 
         if ($result === false) {
-            $this->logger->logError(basename($outputPath), "Failed to save XLIFF file");
+            $this->logger->logError("Failed to save XLIFF file");
             return false;
         }
 

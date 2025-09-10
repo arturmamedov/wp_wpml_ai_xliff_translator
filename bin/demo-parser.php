@@ -17,10 +17,10 @@ if ($argc < 2) {
 }
 
 $xliffFile = $argv[1];
-
+$filename = basename($xliffFile);
 try {
     // Initialize logger with filename for session-specific logs
-    $logger = new Logger('logs', basename($xliffFile));
+    $logger = new Logger('logs', $filename);
 
     echo "🚀 Starting XLIFF Parser Demo\n";
     echo "File: {$xliffFile}\n";
@@ -102,14 +102,13 @@ try {
 
     // Before translation
     if (!empty($mockTranslations)) {
-        $logger->logTranslationStart(basename($xliffFile), $results['target_language']);
+        $logger->logTranslationStart($results['target_language']);
 
         echo "Inserting mock translations for " . count($mockTranslations) . " units...\n";
 
         // Update translation count
-        $filename = basename($xliffFile);
         if (isset($logger->getSessionStats()[$filename])) {
-            $logger->updateTranslationCount($filename, count($mockTranslations));
+            $logger->updateTranslationCount(count($mockTranslations));
         }
 
         $parser->insertTranslations($mockTranslations);
@@ -119,11 +118,11 @@ try {
 
         if ($parser->saveToFile($outputPath)) {
             echo "✅ Demo translated file saved to: {$outputPath}\n";
-            $logger->logTranslationSuccess($filename, $results['target_language'], $outputPath);
+            $logger->logTranslationSuccess($results['target_language'], $outputPath);
             $logger->logFileComplete(basename($xliffFile));
         } else {
             echo "❌ Failed to save demo file\n";
-            $logger->logFileFailure(basename($xliffFile), "Failed to save translated file");
+            $logger->logFileFailure("Failed to save translated file");
         }
     }
 
