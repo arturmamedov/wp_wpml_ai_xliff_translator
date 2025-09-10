@@ -9,16 +9,27 @@ namespace NestsHostels\XLIFFTranslation\Utils;
 class Logger
 {
     private string $logFile;
+    private string $sessionId;
     private array $failedFiles = [];
     private array $sessionStats = [];
 
-    public function __construct(string $logDir = 'logs')
+    public function __construct(string $logDir = 'logs', ?string $filename = null)
     {
         if (!is_dir($logDir)) {
             mkdir($logDir, 0755, true);
         }
 
-        $this->logFile = $logDir . '/xliff-translation-' . date('Y-m-d') . '.log';
+        // Create unique session ID
+        $this->sessionId = date('Y-m-d_H-i-s');
+
+        // Generate session-specific log file
+        if ($filename) {
+            $cleanFilename = pathinfo($filename, PATHINFO_FILENAME);
+            $this->logFile = $logDir . '/xliff-translation-' . $this->sessionId . '_' . $cleanFilename . '.log';
+        } else {
+            $this->logFile = $logDir . '/xliff-translation-' . $this->sessionId . '.log';
+        }
+
         $this->initializeLog();
     }
 
@@ -57,6 +68,55 @@ class Logger
             $exampleText = implode(', ', array_slice($examples, 0, 3));
             $this->writeLog('DEBUG', "Duplicate examples: {$exampleText}");
         }
+    }
+
+    public function logDuplicateDetails(string $filename, array $duplicateGroups): void
+    {
+        if (empty($duplicateGroups)) {
+            return;
+        }
+
+        $this->writeLog('DEBUG', '=== DUPLICATE GROUPS BREAKDOWN ===');
+
+        foreach ($duplicateGroups as $originalId => $duplicateIds) {
+            $count = count($duplicateIds);
+            $this->writeLog('DEBUG', "Group {$originalId}: {$count} duplicates");
+
+            // Log first few duplicate IDs for debugging
+            $sampleIds = array_slice($duplicateIds, 0, 3);
+            $this->writeLog('DEBUG', "  Sample IDs: " . implode(', ', $sampleIds));
+        }
+    }
+
+    public function logContentSamples(array $results): void
+    {
+        $this->writeLog('DEBUG', '=== CONTENT SAMPLES BY STRATEGY ===');
+
+        foreach (['brand_voice', 'metadata', 'non_translatable'] as $strategy) {
+            if (!empty($results[$strategy])) {
+                $count = count($results[$strategy]);
+                $this->writeLog('DEBUG', "{$strategy}: {$count} units");
+
+                $samples = array_slice($results[$strategy], 0, 3);
+                foreach ($samples as $i => $unit) {
+                    $content = substr($unit['source'], 0, 60) . '...';
+                    $this->writeLog('DEBUG', "  " . ($i + 1) . ". [{$unit['id']}] {$unit['content_type']}: {$content}");
+                }
+            }
+        }
+    }
+
+    public function logLanguageInfo(string $filename, string $sourceLanguage, string $targetLanguage): void
+    {
+        $this->writeLog('INFO', "Source language: {$sourceLanguage} → Target language: {$targetLanguage}");
+    }
+
+    public function logProcessingComplete(string $filename, array $stats): void
+    {
+        $this->writeLog('INFO', '=== PROCESSING COMPLETE ===');
+        $this->writeLog('INFO', "Total units: {$stats['total_units']}");
+        $this->writeLog('INFO', "Brand voice: {$stats['brand_voice']} | Metadata: {$stats['metadata']} | Non-translatable: {$stats['non_translatable']}");
+        $this->writeLog('INFO', "Duplicate groups: {$stats['duplicates']}");
     }
 
     public function logContentTypeStats(string $filename, array $stats): void

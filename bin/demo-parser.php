@@ -19,8 +19,8 @@ if ($argc < 2) {
 $xliffFile = $argv[1];
 
 try {
-    // Initialize logger
-    $logger = new Logger();
+    // Initialize logger with filename for session-specific logs
+    $logger = new Logger('logs', basename($xliffFile));
 
     echo "🚀 Starting XLIFF Parser Demo\n";
     echo "File: {$xliffFile}\n";

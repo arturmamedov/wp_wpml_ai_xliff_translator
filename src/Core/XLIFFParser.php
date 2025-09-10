@@ -61,9 +61,27 @@ class XLIFFParser
         $this->classifyUnits();
         $this->applyNonTranslatableRules();
 
+        // MOVED: Log stats after all classification is complete
+        $this->logFinalStats();
+
         $this->logger->logUnitsFound(basename($filePath), count($this->translationUnits));
 
         return $this->getProcessingResults();
+    }
+
+    /**
+     * Log final classification stats after all processing
+     */
+    private function logFinalStats(): void
+    {
+        $stats = ['brand_voice' => 0, 'metadata' => 0, 'non_translatable' => 0];
+
+        foreach ($this->translationUnits as $unit) {
+            $strategy = $unit['translation_strategy'];
+            $stats[$strategy]++;
+        }
+
+        $this->logger->logContentTypeStats('current', $stats);
     }
 
     /**
@@ -334,9 +352,14 @@ class XLIFFParser
             $results['stats'][$strategy]++;
         }
 
+        // Enhanced logging
+        $this->logger->logLanguageInfo('current', $this->sourceLanguage, $this->targetLanguage);
+        $this->logger->logDuplicateDetails('current', $this->duplicateMap);
+        $this->logger->logContentSamples($results);
+        $this->logger->logProcessingComplete('current', $results['stats']);
+
         return $results;
     }
-
     /**
      * Insert translations back into the DOM structure
      */
