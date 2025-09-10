@@ -39,6 +39,10 @@ return [
         'Hostel Address Url',
         'Hostel City POSTAL CODE',
         'Hostel Header Video',
-        'Html' // Google Maps embeds, etc.
+        'Html', // Google Maps embeds, etc.
+        'Hostel Name', // Brand names
+        'Hostel Island', // Geographic names
+        'Hostel Address 1', // Addresses
+        'Hostel City' // City names
     ]
 ];

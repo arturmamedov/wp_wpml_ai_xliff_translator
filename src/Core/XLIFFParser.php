@@ -164,7 +164,16 @@ class XLIFFParser
         foreach ($extradataNodes as $node) {
             $key = $node->getAttribute('key');
             $value = $node->textContent;
-            $extradata[$key] = $value;
+
+            // Parse JSON if it looks like JSON
+            if ($key === 'extradata' && str_starts_with(trim($value), '{')) {
+                $decoded = json_decode($value, true);
+                if ($decoded !== null) {
+                    $extradata = array_merge($extradata, $decoded);
+                }
+            } else {
+                $extradata[$key] = $value;
+            }
         }
 
         return $extradata;
@@ -215,21 +224,36 @@ class XLIFFParser
     }
 
     /**
-     * Classify content based on extradata for appropriate translation strategy
+     * Classify content based on extradata and resname with fallback strategy
      */
     private function classifyUnits(): void
     {
         $stats = ['brand_voice' => 0, 'metadata' => 0, 'non_translatable' => 0];
 
         foreach ($this->translationUnits as &$unit) {
-            $contentType = $unit['extradata']['wpml_context'] ?? 'Unknown';
+            // Primary: Use extradata unit field
+            $contentType = $unit['extradata']['unit'] ?? null;
+
+            // Fallback: Use resname attribute if extradata missing
+            if (!$contentType) {
+                $contentType = $unit['dom_node']->getAttribute('resname');
+            }
+
+            // Additional context from extradata
+            $purpose = $unit['extradata']['purpose'] ?? '';
+            $group = $unit['extradata']['group'] ?? '';
+
             $unit['content_type'] = $contentType;
+            $unit['purpose'] = $purpose;
+            $unit['group'] = $group;
 
             // Classify for translation strategy
             if (in_array($contentType, $this->contentTypes['non_translatable'])) {
                 $unit['translation_strategy'] = 'non_translatable';
                 $stats['non_translatable']++;
-            } elseif (in_array($contentType, $this->contentTypes['metadata'])) {
+            } elseif (in_array($contentType, $this->contentTypes['metadata']) ||
+                str_contains($purpose, 'seo_') ||
+                $group === 'Yoast SEO') {
                 $unit['translation_strategy'] = 'metadata';
                 $stats['metadata']++;
             } elseif (in_array($contentType, $this->contentTypes['brand_voice'])) {
