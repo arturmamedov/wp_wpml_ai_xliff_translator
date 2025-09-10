@@ -53,6 +53,119 @@ class Logger
         ];
     }
 
+    public function logParsingStart(string $filename): void
+    {
+        $this->writeLog('INFO', "========================================");
+        $this->writeLog('INFO', "PARSING XLIFF FILE: {$filename}");
+        $this->writeLog('INFO', "========================================");
+    }
+
+    public function logParsingResults(array $results): void
+    {
+        $stats = $results['stats'];
+        $this->writeLog('INFO', "========================================");
+        $this->writeLog('INFO', "PARSING RESULTS SUMMARY");
+        $this->writeLog('INFO', "========================================");
+        $this->writeLog('INFO', "Total translation units: {$stats['total_units']}");
+        $this->writeLog('INFO', "Brand voice content: {$stats['brand_voice']}");
+        $this->writeLog('INFO', "Metadata content: {$stats['metadata']}");
+        $this->writeLog('INFO', "Non-translatable content: {$stats['non_translatable']}");
+        $this->writeLog('INFO', "Duplicate groups: {$stats['duplicates']}");
+        $this->writeLog('INFO', "Source language: {$results['source_language']}");
+        $this->writeLog('INFO', "Target language: {$results['target_language']}");
+    }
+
+    public function logDuplicateGroupsDetailed(array $duplicateGroups, array $translationUnits): void
+    {
+        if (empty($duplicateGroups)) {
+            $this->writeLog('INFO', "No duplicate groups found");
+            return;
+        }
+
+        $this->writeLog('INFO', "========================================");
+        $this->writeLog('INFO', "DUPLICATE GROUPS DETAILED BREAKDOWN");
+        $this->writeLog('INFO', "========================================");
+
+        foreach ($duplicateGroups as $originalId => $duplicateIds) {
+            $count = count($duplicateIds);
+            $originalContent = isset($translationUnits[$originalId])
+                ? substr($translationUnits[$originalId]['source'], 0, 80) . '...'
+                : 'Content not found';
+
+            $this->writeLog('INFO', "Group {$originalId} ({$count} duplicates): {$originalContent}");
+
+            // Log all duplicate IDs for complete traceability
+            $this->writeLog('DEBUG', "  Duplicate IDs: " . implode(', ', $duplicateIds));
+        }
+    }
+
+    public function logContentSamplesDetailed(array $results): void
+    {
+        $this->writeLog('INFO', "========================================");
+        $this->writeLog('INFO', "CONTENT SAMPLES BY TRANSLATION STRATEGY");
+        $this->writeLog('INFO', "========================================");
+
+        foreach (['brand_voice', 'metadata', 'non_translatable'] as $strategy) {
+            if (!empty($results[$strategy])) {
+                $count = count($results[$strategy]);
+                $this->writeLog('INFO', "{$strategy}: {$count} units");
+
+                // Log first 5 samples with full details
+                $samples = array_slice($results[$strategy], 0, 5);
+                foreach ($samples as $i => $unit) {
+                    $content = substr($unit['source'], 0, 100);
+                    $contentType = $unit['content_type'] ?? 'Unknown';
+                    $purpose = $unit['purpose'] ?? '';
+                    $group = $unit['group'] ?? '';
+
+                    $this->writeLog('DEBUG', "  " . ($i + 1) . ". [{$unit['id']}] Type: {$contentType}");
+                    $this->writeLog('DEBUG', "     Purpose: {$purpose} | Group: {$group}");
+                    $this->writeLog('DEBUG', "     Content: {$content}" . (strlen($unit['source']) > 100 ? '...' : ''));
+
+                    if ($unit['is_duplicate']) {
+                        $this->writeLog('DEBUG', "     [DUPLICATE] Group: {$unit['duplicate_group']}");
+                    }
+                }
+
+                if (count($results[$strategy]) > 5) {
+                    $remaining = count($results[$strategy]) - 5;
+                    $this->writeLog('DEBUG', "  ... and {$remaining} more {$strategy} units");
+                }
+            } else {
+                $this->writeLog('INFO', "{$strategy}: 0 units");
+            }
+        }
+    }
+
+    public function logTranslationApplied(string $unitId, string $originalText, string $translatedText, bool $isDuplicate = false): void
+    {
+        $originalPreview = substr($originalText, 0, 60) . (strlen($originalText) > 60 ? '...' : '');
+        $translatedPreview = substr($translatedText, 0, 60) . (strlen($translatedText) > 60 ? '...' : '');
+
+        $duplicateMarker = $isDuplicate ? '[DUPLICATE]' : '';
+
+        $this->writeLog('INFO', "[TRANSLATED] {$duplicateMarker} Unit: {$unitId}");
+        $this->writeLog('DEBUG', "  Original: {$originalPreview}");
+        $this->writeLog('DEBUG', "  Translation: {$translatedPreview}");
+    }
+
+    public function logTranslationBatch(array $translations, array $duplicateMap): void
+    {
+        $totalTranslations = count($translations);
+        $duplicatesApplied = 0;
+
+        // Count duplicates that will be auto-applied
+        foreach ($duplicateMap as $originalId => $duplicateIds) {
+            if (isset($translations[$originalId])) {
+                $duplicatesApplied += count($duplicateIds) - 1; // Exclude original
+            }
+        }
+
+        $this->writeLog('INFO', "Applying {$totalTranslations} unique translations");
+        $this->writeLog('INFO', "Auto-applying to {$duplicatesApplied} duplicate units");
+        $this->writeLog('INFO', "Total units translated: " . ($totalTranslations + $duplicatesApplied));
+    }
+
     public function logUnitsFound(string $filename, int $count): void
     {
         $this->writeLog('INFO', "Found {$count} translation units in {$filename}");
@@ -134,13 +247,22 @@ class Logger
 
     public function logTranslationStart(string $filename, string $targetLanguage): void
     {
-        $this->writeLog('INFO', "Starting translation to {$targetLanguage}");
+        $this->writeLog('INFO', "========================================");
+        $this->writeLog('INFO', "STARTING TRANSLATION TO {$targetLanguage}");
+        $this->writeLog('INFO', "========================================");
+    }
+
+    public function updateTranslationCount(string $filename, int $count): void
+    {
+        if (isset($this->sessionStats[$filename])) {
+            $this->sessionStats[$filename]['units_translated'] = $count;
+        }
     }
 
     public function logTranslationSuccess(string $filename, string $targetLanguage, string $outputPath): void
     {
         $this->writeLog('SUCCESS', "Translated to {$targetLanguage} → {$outputPath}");
-        $this->sessionStats[$filename]['units_translated']++;
+        //$this->sessionStats[$this->filename]['units_translated']++; // TODO: i think this was designed for use this log after each translation
     }
 
     public function logError(string $filename, string $error, ?array $unit = null): void
@@ -164,10 +286,15 @@ class Logger
         $stats = $this->sessionStats[$filename];
         $duration = round(microtime(true) - $stats['start_time'], 2);
 
-        $this->writeLog('INFO', "File completed: {$filename}");
-        $this->writeLog('INFO', "Duration: {$duration}s | Units: {$stats['units_found']} | Translated: {$stats['units_translated']} | Errors: {$stats['errors']}");
+        $this->writeLog('INFO', "========================================");
+        $this->writeLog('INFO', "FILE PROCESSING COMPLETE: {$filename}");
+        $this->writeLog('INFO', "========================================");
+        $this->writeLog('INFO', "Duration: {$duration}s");
+        $this->writeLog('INFO', "Units found: {$stats['units_found']}");
+        $this->writeLog('INFO', "Units translated: {$stats['units_translated']}");
+        $this->writeLog('INFO', "Duplicates handled: {$stats['duplicates_found']}");
+        $this->writeLog('INFO', "Errors: {$stats['errors']}");
     }
-
     public function logFileFailure(string $filename, string $reason): void
     {
         $this->writeLog('ERROR', "File failed: {$filename} - {$reason}");

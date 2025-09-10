@@ -33,6 +33,11 @@ try {
     echo "📖 Parsing XLIFF file...\n";
     $results = $parser->parseXLIFFFile($xliffFile);
 
+    // After parsing
+    $logger->logParsingResults($results);
+    $logger->logDuplicateGroupsDetailed($results['duplicates'], $parser->getUnitsByStrategy('brand_voice'));
+    $logger->logContentSamplesDetailed($results);
+
     // Display results
     echo "\n📊 PARSING RESULTS:\n";
     echo str_repeat("-", 30) . "\n";
@@ -95,17 +100,30 @@ try {
         $mockTranslations[$unit['id']] = "[TRANSLATED] " . $unit['source'];
     }
 
+    // Before translation
     if (!empty($mockTranslations)) {
+        $logger->logTranslationStart(basename($xliffFile), $results['target_language']);
+
         echo "Inserting mock translations for " . count($mockTranslations) . " units...\n";
+
+        // Update translation count
+        $filename = basename($xliffFile);
+        if (isset($logger->getSessionStats()[$filename])) {
+            $logger->updateTranslationCount($filename, count($mockTranslations));
+        }
+
         $parser->insertTranslations($mockTranslations);
 
-        // Save to demo output file
+        // Save and log completion
         $outputPath = dirname($xliffFile) . '/translated/' . basename($xliffFile);
 
         if ($parser->saveToFile($outputPath)) {
             echo "✅ Demo translated file saved to: {$outputPath}\n";
+            $logger->logTranslationSuccess($filename, $results['target_language'], $outputPath);
+            $logger->logFileComplete(basename($xliffFile));
         } else {
             echo "❌ Failed to save demo file\n";
+            $logger->logFileFailure(basename($xliffFile), "Failed to save translated file");
         }
     }
 

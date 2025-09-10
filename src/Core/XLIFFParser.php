@@ -365,6 +365,8 @@ class XLIFFParser
      */
     public function insertTranslations(array $translations): void
     {
+        $this->logger->logTranslationBatch($translations, $this->duplicateMap);
+
         foreach ($translations as $unitId => $translatedText) {
             if (!isset($this->translationUnits[$unitId])) {
                 continue;
@@ -397,11 +399,18 @@ class XLIFFParser
                 $targetNode->textContent = $translatedText;
             }
 
+            // Log the translation application
+            $this->logger->logTranslationApplied($unitId, $unit['source'], $translatedText, false);
+
             // Handle duplicates - apply same translation to all duplicates
             if (isset($this->duplicateMap[$unitId])) {
                 foreach ($this->duplicateMap[$unitId] as $duplicateId) {
                     if ($duplicateId !== $unitId && isset($this->translationUnits[$duplicateId])) {
                         $this->insertSingleTranslation($duplicateId, $translatedText);
+
+                        // Log duplicate application
+                        $duplicateUnit = $this->translationUnits[$duplicateId];
+                        $this->logger->logTranslationApplied($duplicateId, $duplicateUnit['source'], $translatedText, true);
                     }
                 }
             }
