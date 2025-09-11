@@ -316,6 +316,11 @@ class XLIFFParser
                 continue; // Already marked as non-translatable
             }
 
+            // Trust smart classification - don't override intelligent decisions
+            if (in_array($unit['translation_strategy'], ['brand_voice', 'metadata'])) {
+                continue; // Trust the intelligent classification
+            }
+
             $content = $unit['source'];
 
             // Check exact matches
