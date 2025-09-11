@@ -32,6 +32,7 @@ class XLIFFParser
         $this->logger = $logger;
         $this->contentTypes = require __DIR__ . '/../../config/content-types.php';
         $this->nonTranslatableRules = require __DIR__ . '/../../config/non-translatable-rules.php';
+        $this->translationConfig = require __DIR__ . '/../../config/translation-settings.php';
 
         $this->dom = new DOMDocument('1.0', 'UTF-8');
         $this->dom->preserveWhiteSpace = true;
@@ -138,6 +139,7 @@ class XLIFFParser
             $this->translationUnits[$unitId] = [
                 'id' => $unitId,
                 'source' => $sourceContent,
+                'has_cdata' => $this->sourceNodeHasCDATA($sourceNode),
                 'target' => '', // Will be filled by translator
                 'extradata' => $extradata,
                 'content_type' => null, // Will be classified
@@ -148,6 +150,23 @@ class XLIFFParser
                 'original_structure' => $unit->ownerDocument->saveXML($unit)
             ];
         }
+    }
+
+
+    /**
+     * Are the translation unit wrapped in CDATA (mostly yes)
+     *
+     * @param $sourceNode XML DOM Node
+     *
+     * @return bool
+     */
+    private function sourceNodeHasCDATA($sourceNode): bool {
+        foreach ($sourceNode->childNodes as $child) {
+            if ($child->nodeType === XML_CDATA_SECTION_NODE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -373,31 +392,9 @@ class XLIFFParser
             }
 
             $unit = $this->translationUnits[$unitId];
-            $transUnitNode = $unit['dom_node'];
 
-            // Find or create target element
-            $targetNode = $this->xpath->query('.//xliff:target', $transUnitNode)->item(0);
-
-            if (!$targetNode) {
-                // Create target element if it doesn't exist
-                $targetNode = $this->dom->createElement('target');
-                $sourceNode = $this->xpath->query('.//xliff:source', $transUnitNode)->item(0);
-                $sourceNode->parentNode->insertBefore($targetNode, $sourceNode->nextSibling);
-            }
-
-            // Clear existing content and insert translation
-            while ($targetNode->firstChild) {
-                $targetNode->removeChild($targetNode->firstChild);
-            }
-
-            // Handle CDATA wrapping like source
-            if (strpos($unit['source'], '<![CDATA[') !== false ||
-                strpos($translatedText, '<') !== false) {
-                $cdata = $this->dom->createCDATASection($translatedText);
-                $targetNode->appendChild($cdata);
-            } else {
-                $targetNode->textContent = $translatedText;
-            }
+            // Use insertSingleTranslation for the main translation
+            $this->insertSingleTranslation($unitId, $translatedText);
 
             // Log the translation application
             $this->logger->logTranslationApplied($unitId, $unit['source'], $translatedText, false);
@@ -436,12 +433,19 @@ class XLIFFParser
             $sourceNode->parentNode->insertBefore($targetNode, $sourceNode->nextSibling);
         }
 
+        // Clear existing content
         while ($targetNode->firstChild) {
             $targetNode->removeChild($targetNode->firstChild);
         }
 
-        if (strpos($unit['source'], '<![CDATA[') !== false ||
-            strpos($translation, '<') !== false) {
+        // State management - set target state and remove state-qualifier if configured
+        $targetNode->setAttribute('state', $this->translationConfig['target_state']);
+        if ($this->translationConfig['remove_state_qualifier']) {
+            $targetNode->removeAttribute('state-qualifier');
+        }
+
+        // CDATA handling - use stored CDATA info from parsing
+        if ($unit['has_cdata']) {
             $cdata = $this->dom->createCDATASection($translation);
             $targetNode->appendChild($cdata);
         } else {
