@@ -120,7 +120,7 @@ class Logger
                     $group = $unit['group'] ?? '';
 
                     $this->writeLog('DEBUG', "  " . ($i + 1) . ". [{$unit['id']}] Type: {$contentType}");
-                    $this->writeLog('DEBUG', "     Purpose: {$purpose} | Group: {$group}");
+                    $this->writeLog('DEBUG', "     Purpose: {$purpose} | Group: {$group} | -> {$strategy}");
                     $this->writeLog('DEBUG', "     Content: {$content}" . (strlen($unit['source']) > 100 ? '...' : ''));
 
                     if ($unit['is_duplicate']) {
