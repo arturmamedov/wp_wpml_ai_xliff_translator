@@ -112,8 +112,8 @@ class Logger
                 $this->writeLog('INFO', "{$strategy}: {$count} units");
 
                 // Log first 5 samples with full details
-                $samples = array_slice($results[$strategy], 0, 5);
-                foreach ($samples as $i => $unit) {
+                //$samples = array_slice($results[$strategy], 0, 5);
+                foreach ($results[$strategy] as $i => $unit) {
                     $content = substr($unit['source'], 0, 100);
                     $contentType = $unit['content_type'] ?? 'Unknown';
                     $purpose = $unit['purpose'] ?? '';
