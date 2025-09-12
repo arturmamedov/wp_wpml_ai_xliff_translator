@@ -13,7 +13,7 @@ return [
         'youtube_url' => '/youtube\.be\/|youtu\.be\//',
         'whatsapp_url' => '/wa\.me\//',
         'google_maps' => '/google\.com\/maps\/embed/',
-        'wordpress_comment' => '/<!--.*-->/s'
+        'wordpress_comment' => '/<!--.*-->/s' // TODO: #1 XLIFFParaser.php -> applyNonTranslatableRules()
     ],
 
     'exact_matches' => [
@@ -49,7 +49,7 @@ return [
 
     'content_patterns' => [
         // WordPress/technical content
-        'gutenberg_comment' => '/<!-- \/wp:/',
+        'gutenberg_comment' => '/<!-- \/wp:/',  // TODO: #1 XLIFFParaser.php -> applyNonTranslatableRules()
         'cdata_section' => '/<!\[CDATA\[.*\]\]>/s',
         'html_entity' => '/&[a-zA-Z]+;/',
         'css_style' => '/style\s*=\s*["\'].*["\']/i',

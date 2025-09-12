@@ -320,7 +320,7 @@ class XLIFFParser
             if (in_array($unit['translation_strategy'], ['brand_voice', 'metadata'])) {
                 continue; // Trust the intelligent classification
             }
-
+            // TODO: #1 pattern may be to strict with <!-- wp:paragraph --> and other WP tags, or HTML a REGEXP that check content inside also needed
             $content = $unit['source'];
 
             // Check exact matches
