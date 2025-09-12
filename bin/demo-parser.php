@@ -93,11 +93,10 @@ try {
 
     // Create mock translations for brand voice content
     $mockTranslations = [];
-    $brandVoiceUnits = array_slice($results['brand_voice'], 0, 2);
-
-    foreach ($brandVoiceUnits as $unit) {
+    //$brandVoiceUnits = array_slice($results['brand_voice'], 0, 2);
+    foreach ($results['brand_voice'] as $unit) {
         // Mock translation - just add [TRANSLATED] prefix
-        $mockTranslations[$unit['id']] = "[TRANSLATED] " . $unit['source'];
+        $mockTranslations[$unit['id']] = " -TRANSLATED- " . $unit['source'];
     }
 
     // Before translation
