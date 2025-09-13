@@ -151,11 +151,13 @@ class BrandVoiceTranslator
         $langKey = $this->config['language_mapping'][strtolower($targetLanguage)] ?? 'english';
         $template = $this->config['prompts']['brand_voice_user'][$langKey];
 
-        return str_replace(
+        $basePrompt = str_replace(
             ['{TEXT}', '{CONTEXT}'],
             [$text, $context ?: 'General content'],
             $template
         );
+
+        return $this->wrapPrompt($basePrompt);
     }
 
     /**
@@ -166,11 +168,18 @@ class BrandVoiceTranslator
         $langKey = $this->config['language_mapping'][strtolower($targetLanguage)] ?? 'english';
         $template = $this->config['prompts']['metadata_user'][$langKey];
 
-        return str_replace(
+        $basePrompt = str_replace(
             ['{TEXT}', '{SEO_TYPE}', '{CONTEXT}'],
             [$text, $seoType, 'SEO/Metadata content'],
             $template
         );
+
+        return $this->wrapPrompt($basePrompt);
+    }
+
+    private function wrapPrompt(string $basePrompt): string
+    {
+        return $basePrompt . "\n\nReturn only the translation text, no explanations and no other versions.";
     }
 
     /**
@@ -242,6 +251,7 @@ class BrandVoiceTranslator
             throw new \Exception('Invalid Claude API response structure');
         }
 
+        // Trust the system prompt to handle verbosity properly and not add TRANSLATED VERSION: Wake up... [explanations] WHY THIS WORKS: [reasoning]
         return trim($response['content'][0]['text']);
     }
 

@@ -57,11 +57,6 @@ WEBSITE COPY:
 - Benefits-focused, not feature-heavy
 - Clear practical info mixed with personality
 
-EMAIL/NEWSLETTER:
-- Personal, like writing to a friend
-- Conversational subject lines
-- Warm, friendly sign-offs
-
 TRANSLATION EXAMPLES:
 
 DON\'T translate like this:
@@ -78,7 +73,9 @@ DO translate like this:
 QUALITY STANDARD:
 Apply the "Group Chat Test" - if you wouldn\'t send this text in a group chat with travel friends because it sounds too corporate, rewrite it to be more authentic and casual.
 
-You\'re not just translating words—you\'re translating the feeling of finding your travel tribe and discovering amazing experiences.',
+You\'re not just translating words—you\'re translating the feeling of finding your travel tribe and discovering amazing experiences.
+
+RESPONSE FORMAT: Always respond with only the translated text, nothing else!',
 
         'brand_voice_user' => [
             'spanish' => 'Translate the following text to Spanish, following these language-specific guidelines:
