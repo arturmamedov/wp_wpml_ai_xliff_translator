@@ -5,28 +5,99 @@ namespace NestsHostels\XLIFFTranslation\Core;
 use NestsHostels\XLIFFTranslation\Utils\Logger;
 
 /**
- * BrandVoiceTranslator - OpenAI Integration for Nests Hostels Brand Voice
+ * BrandVoiceTranslator - Multi-provider translation with Nests Hostels brand voice
  *
- * Handles translation with specific brand voice preservation for different content types
+ * Supports OpenAI and Claude APIs with configurable prompts and provider switching
  */
 class BrandVoiceTranslator
 {
-    private string $apiKey;
+    private array $config;
     private Logger $logger;
-    private string $baseUrl = 'https://api.openai.com/v1/chat/completions';
-    private array $rateLimits = [
-        'requests_per_minute' => 3,
-        'last_request_time' => 0
-    ];
+    private string $currentProvider;
+    private array $rateLimits = ['last_request_time' => 0];
 
-    public function __construct(string $apiKey, Logger $logger)
+    public function __construct(array $config, Logger $logger)
     {
-        $this->apiKey = $apiKey;
+        $this->config = $config;
         $this->logger = $logger;
+        $this->currentProvider = $config['default_provider'];
     }
 
     /**
-     * Translate brand voice content units
+     * Set provider at runtime (--provider=claude)
+     */
+    public function setProvider(string $provider): void
+    {
+        $availableProviders = array_keys($this->config['providers']);
+
+        if (!in_array($provider, $availableProviders)) {
+            throw new \InvalidArgumentException("Provider '{$provider}' not available. Available: " . implode(', ', $availableProviders));
+        }
+
+        $this->currentProvider = $provider;
+        $this->logger->logError("Provider switched to: {$provider}", null);
+    }
+
+    /**
+     * Get available providers
+     */
+    public function getAvailableProviders(): array
+    {
+        return array_keys($this->config['providers']);
+    }
+
+    /**
+     * Translate single brand voice content unit
+     */
+    public function translateBrandVoice(string $text, string $targetLanguage, string $context = ''): string
+    {
+        try {
+            $this->respectRateLimit();
+
+            $systemPrompt = $this->config['prompts']['system'];
+            $userPrompt = $this->buildBrandVoicePrompt($text, $targetLanguage, $context);
+
+            $translation = $this->handleApiCall($systemPrompt, $userPrompt);
+
+            $this->logger->logTranslationApplied('single-unit', $text, $translation);
+            return $translation;
+
+        } catch (\Exception $e) {
+            return $this->handleTranslationFailure($e, $text, [
+                'type' => 'brand_voice',
+                'target_lang' => $targetLanguage,
+                'context' => $context
+            ]);
+        }
+    }
+
+    /**
+     * Translate single metadata/SEO content unit
+     */
+    public function translateMetadata(string $text, string $targetLanguage, string $seoType = 'general'): string
+    {
+        try {
+            $this->respectRateLimit();
+
+            $systemPrompt = $this->config['prompts']['system'];
+            $userPrompt = $this->buildMetadataPrompt($text, $targetLanguage, $seoType);
+
+            $translation = $this->handleApiCall($systemPrompt, $userPrompt);
+
+            $this->logger->logTranslationApplied('metadata-unit', $text, $translation);
+            return $translation;
+
+        } catch (\Exception $e) {
+            return $this->handleTranslationFailure($e, $text, [
+                'type' => 'metadata',
+                'target_lang' => $targetLanguage,
+                'seo_type' => $seoType
+            ]);
+        }
+    }
+
+    /**
+     * Batch translate brand voice content
      */
     public function translateBrandVoiceContent(array $units, string $targetLanguage): array
     {
@@ -39,28 +110,17 @@ class BrandVoiceTranslator
             $unitId = $unit['id'];
             $sourceText = $unit['source'];
             $contentType = $unit['content_type'] ?? 'General';
+            $context = $unit['purpose'] ?? '';
 
-            echo "Translating (" . $index + 1 . " /{$totalUnits}): {$contentType}...\n";
+            echo "🔄 Translating Brand Voice ({$this->currentProvider}) (" . ($index + 1) . "/{$totalUnits}): {$contentType}...\n";
 
-            try {
-                // Respect rate limits
-                $this->respectRateLimit();
+            $translation = $this->translateBrandVoice($sourceText, $targetLanguage, $context);
 
-                // Get brand voice translation
-                $translation = $this->translateWithBrandVoice(
-                    $sourceText,
-                    $contentType,
-                    $targetLanguage
-                );
-
+            if ($translation !== $sourceText) { // Only add if successfully translated
                 $translations[$unitId] = $translation;
-
-                $this->logger->logTranslationApplied($unitId, $sourceText, $translation);
-
-            } catch (Exception $e) {
-                $this->logger->logError("Translation failed for unit {$unitId}: " . $e->getMessage(), $unit);
-                echo "❌ Failed: {$contentType}\n";
-                continue;
+                echo "✅ Success: {$contentType}\n";
+            } else {
+                echo "⚠️  Fallback (kept Spanish): {$contentType}\n";
             }
         }
 
@@ -69,152 +129,135 @@ class BrandVoiceTranslator
     }
 
     /**
-     * Translate text with Nests Hostels brand voice
+     * Route API call to correct provider
      */
-    private function translateWithBrandVoice(string $text, string $contentType, string $targetLanguage): string
+    private function handleApiCall(string $systemPrompt, string $userPrompt): string
     {
-        $prompt = $this->buildBrandVoicePrompt($text, $contentType, $targetLanguage);
+        switch ($this->currentProvider) {
+            case 'openai':
+                return $this->callOpenAI($systemPrompt, $userPrompt);
+            case 'claude':
+                return $this->callClaude($systemPrompt, $userPrompt);
+            default:
+                throw new \Exception("Unsupported provider: {$this->currentProvider}");
+        }
+    }
+
+    /**
+     * Build brand voice prompt using config templates
+     */
+    private function buildBrandVoicePrompt(string $text, string $targetLanguage, string $context): string
+    {
+        $langKey = $this->config['language_mapping'][strtolower($targetLanguage)] ?? 'english';
+        $template = $this->config['prompts']['brand_voice_user'][$langKey];
+
+        return str_replace(
+            ['{TEXT}', '{CONTEXT}'],
+            [$text, $context ?: 'General content'],
+            $template
+        );
+    }
+
+    /**
+     * Build metadata/SEO prompt using config templates
+     */
+    private function buildMetadataPrompt(string $text, string $targetLanguage, string $seoType): string
+    {
+        $langKey = $this->config['language_mapping'][strtolower($targetLanguage)] ?? 'english';
+        $template = $this->config['prompts']['metadata_user'][$langKey];
+
+        return str_replace(
+            ['{TEXT}', '{SEO_TYPE}', '{CONTEXT}'],
+            [$text, $seoType, 'SEO/Metadata content'],
+            $template
+        );
+    }
+
+    /**
+     * OpenAI API call
+     */
+    private function callOpenAI(string $systemPrompt, string $userPrompt): string
+    {
+        $providerConfig = $this->config['providers']['openai'];
+        $apiKey = getenv($providerConfig['key_env']);
+
+        if (!$apiKey) {
+            throw new \Exception("OpenAI API key not found in environment: {$providerConfig['key_env']}");
+        }
 
         $data = [
-            'model' => 'gpt-4o-mini',
+            'model' => $providerConfig['model'],
             'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => $this->getBrandVoiceSystemPrompt($targetLanguage)
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $prompt
-                ]
+                ['role' => 'system', 'content' => $systemPrompt],
+                ['role' => 'user', 'content' => $userPrompt]
             ],
-            'max_tokens' => 1000,
-            'temperature' => 0.7
+            'max_tokens' => $providerConfig['max_tokens'],
+            'temperature' => $providerConfig['temperature']
         ];
 
-        $response = $this->callOpenAI($data);
+        $headers = [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $apiKey
+        ];
+
+        $response = $this->makeCurlRequest($providerConfig['endpoint'], $data, $headers);
 
         if (!isset($response['choices'][0]['message']['content'])) {
-            throw new \Exception('Invalid API response structure');
+            throw new \Exception('Invalid OpenAI API response structure');
         }
 
         return trim($response['choices'][0]['message']['content']);
     }
 
     /**
-     * Build content-specific brand voice prompt
+     * Claude API call
      */
-    private function buildBrandVoicePrompt(string $text, string $contentType, string $targetLanguage): string
+    private function callClaude(string $systemPrompt, string $userPrompt): string
     {
-        $basePrompt = "Translate this {$contentType} from Spanish to {$targetLanguage}:\n\n\"{$text}\"\n\n";
+        $providerConfig = $this->config['providers']['claude'];
+        $apiKey = getenv($providerConfig['key_env']);
 
-        switch ($contentType) {
-            case 'Title':
-            case 'title':
-                return $basePrompt . "Make it catchy and social media friendly while keeping the same meaning.";
-
-            case 'Hostel Services':
-            case 'Hostel Feature Description':
-            case 'Hostel Content':
-                return $basePrompt . "Maintain the casual 'group chat with travel friends' vibe. Sound excited about travel and adventures. Keep emojis and preserve HTML tags exactly.";
-
-            case 'Hostel Services Description H4':
-                return $basePrompt . "Keep it friendly but clear for booking decisions. Casual but informative.";
-
-            case 'excerpt':
-            case 'Excerpt':
-                return $basePrompt . "This is a summary for travelers. Make it sound like you're recommending to friends.";
-
-            case 'Paragraph':
-                return $basePrompt . "Very casual and friendly, like texting travel buddies about this place.";
-
-            default:
-                return $basePrompt . "Keep the same casual, friendly Nests Hostels brand voice - like talking to travel friends.";
+        if (!$apiKey) {
+            throw new \Exception("Claude API key not found in environment: {$providerConfig['key_env']}");
         }
-    }
 
-    /**
-     * System prompt defining Nests Hostels brand voice
-     */
-    private function getBrandVoiceSystemPrompt(string $targetLanguage): string
-    {
-        return "You are a translator for Nests Hostels, a surf hostel chain in Tenerife targeting Gen-Z and Millennial travelers.
-
-BRAND VOICE GUIDELINES:
-- Casual, friendly tone like chatting with travel friends
-- Enthusiastic about surf, beach life, and adventures  
-- Social and welcoming atmosphere
-- European Spanish influence (source language)
-- Never overly formal or corporate
-
-TECHNICAL REQUIREMENTS:
-- Preserve ALL HTML tags exactly: <strong>, <br/>, <!-- comments -->
-- Keep ALL WordPress shortcodes unchanged: [shortcode_name]
-- Maintain all emojis and special characters
-- Don't translate proper nouns: Duque Nest, Costa Adeje, Tenerife, NEST PASS
-- URLs and email addresses stay unchanged
-
-TARGET LANGUAGE SPECIFICS FOR {$targetLanguage}:
-" . $this->getLanguageSpecificGuidelines($targetLanguage);
-    }
-
-    /**
-     * Language-specific brand voice guidelines
-     */
-    private function getLanguageSpecificGuidelines(string $language): string
-    {
-        switch (strtolower($language)) {
-            case 'en':
-            case 'english':
-                return "- Casual American/International English
-- Use contractions (you're, we're, it's)
-- Sound natural and conversational
-- Beach/surf slang is welcome: 'vibes', 'chill', 'awesome'";
-
-            case 'de':
-            case 'german':
-                return "- Friendly German but not overly formal
-- Use 'du' form when appropriate for young travelers
-- Keep English surf terms when they're commonly used
-- Maintain warmth despite German structure";
-
-            case 'fr':
-            case 'french':
-                return "- Warm, welcoming French
-- Avoid overly formal 'vous' when context suggests casual
-- Keep some English beach/surf terms if natural
-- Mediterranean coastal friendly vibe";
-
-            case 'it':
-            case 'italian':
-                return "- Enthusiastic, expressive Italian
-- Family-friendly but trendy
-- Keep beach energy and excitement
-- Natural flow, not literal translation";
-
-            default:
-                return "- Maintain casual, friendly tone appropriate for young travelers
-- Keep the energy and enthusiasm of the original";
-        }
-    }
-
-    /**
-     * Make OpenAI API call with error handling
-     */
-    private function callOpenAI(array $data): array
-    {
-        $headers = [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $this->apiKey
+        $data = [
+            'model' => $providerConfig['model'],
+            'system' => $systemPrompt,
+            'messages' => [
+                ['role' => 'user', 'content' => $userPrompt]
+            ],
+            'max_tokens' => $providerConfig['max_tokens']
         ];
 
+        $headers = [
+            'Content-Type: application/json',
+            'x-api-key: ' . $apiKey,
+            'anthropic-version: 2023-06-01'
+        ];
+
+        $response = $this->makeCurlRequest($providerConfig['endpoint'], $data, $headers);
+
+        if (!isset($response['content'][0]['text'])) {
+            throw new \Exception('Invalid Claude API response structure');
+        }
+
+        return trim($response['content'][0]['text']);
+    }
+
+    /**
+     * Generic cURL request handler
+     */
+    private function makeCurlRequest(string $endpoint, array $data, array $headers): array
+    {
         $ch = curl_init();
         curl_setopt_array($ch, [
-            CURLOPT_URL => $this->baseUrl,
+            CURLOPT_URL => $endpoint,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => json_encode($data),
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_TIMEOUT => 30
+            CURLOPT_TIMEOUT => $this->config['timeout_seconds']
         ]);
 
         $response = curl_exec($ch);
@@ -228,31 +271,48 @@ TARGET LANGUAGE SPECIFICS FOR {$targetLanguage}:
 
         if ($httpCode !== 200) {
             $errorResponse = json_decode($response, true);
-            $errorMsg = $errorResponse['error']['message'] ?? 'Unknown API error';
-            throw new \Exception("OpenAI API error (HTTP {$httpCode}): {$errorMsg}");
+            $errorMsg = $errorResponse['error']['message'] ?? $errorResponse['error']['type'] ?? 'Unknown API error';
+            throw new \Exception("API error (HTTP {$httpCode}): {$errorMsg}");
         }
 
         $result = json_decode($response, true);
-
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \Exception("Invalid JSON response from OpenAI API");
+            throw new \Exception("Invalid JSON response from API");
         }
 
         return $result;
     }
 
     /**
-     * Respect OpenAI rate limits
+     * Handle translation failure with comprehensive logging
+     */
+    private function handleTranslationFailure(\Exception $e, string $originalText, array $context): string
+    {
+        $this->logger->logError("Translation failed ({$this->currentProvider})", [
+            'provider' => $this->currentProvider,
+            'error' => $e->getMessage(),
+            'original_text' => substr($originalText, 0, 100),
+            'target_language' => $context['target_lang'] ?? 'unknown',
+            'content_type' => $context['type'] ?? 'unknown',
+            'context' => $context
+        ]);
+
+        // Fallback to original Spanish text
+        return $originalText;
+    }
+
+    /**
+     * Respect rate limits
      */
     private function respectRateLimit(): void
     {
         $currentTime = time();
         $timeSinceLastRequest = $currentTime - $this->rateLimits['last_request_time'];
-        $minInterval = 60 / $this->rateLimits['requests_per_minute']; // seconds between requests
+        $minInterval = 60 / $this->config['rate_limit_rpm']; // seconds between requests
 
         if ($timeSinceLastRequest < $minInterval) {
-            $sleepTime = $minInterval - $timeSinceLastRequest;
-            echo "⏳ Rate limiting: waiting {$sleepTime}s...\n";
+            $sleepTime = ceil($minInterval - $timeSinceLastRequest);
+            echo "⏳ Rate limiting ({$this->currentProvider}): waiting {$sleepTime}s...\n";
             sleep($sleepTime);
         }
 
