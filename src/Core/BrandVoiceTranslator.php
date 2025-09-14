@@ -112,7 +112,7 @@ class BrandVoiceTranslator
             $contentType = $unit['content_type'] ?? 'General';
             $context = $unit['purpose'] ?? '';
 
-            echo "🔄 Translating Brand Voice ({$this->currentProvider}) (" . ($index + 1) . "/{$totalUnits}): {$contentType}...\n";
+            echo "🔄 Translating Brand Voice ({$this->currentProvider}) (" . ($index + 1) . "/{$totalUnits}): {$contentType} [prps -> {$context}]...\n";
 
             $translation = $this->translateBrandVoice($sourceText, $targetLanguage, $context);
 

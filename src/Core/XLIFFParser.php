@@ -384,6 +384,7 @@ class XLIFFParser
 
         return $results;
     }
+
     /**
      * Insert translations back into the DOM structure
      */
