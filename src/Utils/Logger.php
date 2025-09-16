@@ -114,14 +114,14 @@ class Logger
                 // Log first 5 samples with full details
                 //$samples = array_slice($results[$strategy], 0, 5);
                 foreach ($results[$strategy] as $i => $unit) {
-                    $content = substr($unit['source'], 0, 100);
+                    $content = substr($unit['source'], 0, 160);
                     $contentType = $unit['content_type'] ?? 'Unknown';
                     $purpose = $unit['purpose'] ?? '';
                     $group = $unit['group'] ?? '';
 
                     $this->writeLog('DEBUG', "  " . ($i + 1) . ". [{$unit['id']}] Type: {$contentType}");
                     $this->writeLog('DEBUG', "     Purpose: {$purpose} | Group: {$group} | -> {$strategy}");
-                    $this->writeLog('DEBUG', "     Content: {$content}" . (strlen($unit['source']) > 100 ? '...' : ''));
+                    $this->writeLog('DEBUG', "     Content: {$content}" . (strlen($unit['source']) > 160 ? '...' : ''));
 
                     if ($unit['is_duplicate']) {
                         $this->writeLog('DEBUG', "     [DUPLICATE] Group: {$unit['duplicate_group']}");
@@ -140,8 +140,8 @@ class Logger
 
     public function logTranslationApplied(string $unitId, string $originalText, string $translatedText, bool $isDuplicate = false): void
     {
-        $originalPreview = substr($originalText, 0, 60) . (strlen($originalText) > 60 ? '...' : '');
-        $translatedPreview = substr($translatedText, 0, 60) . (strlen($translatedText) > 60 ? '...' : '');
+        $originalPreview = substr($originalText, 0, 160) . (strlen($originalText) > 60 ? '...' : '');
+        $translatedPreview = substr($translatedText, 0, 160) . (strlen($translatedText) > 60 ? '...' : '');
 
         $duplicateMarker = $isDuplicate ? '[DUPLICATE]' : '';
 
@@ -199,24 +199,6 @@ class Logger
             // Log first few duplicate IDs for debugging
             $sampleIds = array_slice($duplicateIds, 0, 3);
             $this->writeLog('DEBUG', "  Sample IDs: " . implode(', ', $sampleIds));
-        }
-    }
-
-    public function logContentSamples(array $results): void
-    {
-        $this->writeLog('DEBUG', '=== CONTENT SAMPLES BY STRATEGY ===');
-
-        foreach (['brand_voice', 'metadata', 'non_translatable'] as $strategy) {
-            if (!empty($results[$strategy])) {
-                $count = count($results[$strategy]);
-                $this->writeLog('DEBUG', "{$strategy}: {$count} units");
-
-                $samples = array_slice($results[$strategy], 0, 3);
-                foreach ($samples as $i => $unit) {
-                    $content = substr($unit['source'], 0, 60) . '...';
-                    $this->writeLog('DEBUG', "  " . ($i + 1) . ". [{$unit['id']}] {$unit['content_type']}: {$content}");
-                }
-            }
         }
     }
 
@@ -345,7 +327,7 @@ class Logger
     private function writeLog(string $level, string $message): void
     {
         $timestamp = date('Y-m-d H:i:s');
-        $logEntry = "[{$timestamp}] {$level}: {$message}" . PHP_EOL;
+        $logEntry = "[{$timestamp}|".basename(__FILE__)."/".__LINE__."] {$level}: {$message}" . PHP_EOL;
 
         file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
 

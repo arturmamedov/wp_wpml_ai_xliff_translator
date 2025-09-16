@@ -254,7 +254,7 @@ class XLIFFParser
         if ($duplicateCount > 0) {
             $examples = array_slice(array_keys($duplicateGroups), 0, 3);
             $exampleTexts = array_map(function($id) {
-                return substr($this->translationUnits[$id]['source'], 0, 50) . '...';
+                return substr($this->translationUnits[$id]['source'], 0, 160) . '...';
             }, $examples);
 
             $this->logger->logDuplicatesFound($duplicateCount, $exampleTexts);
@@ -380,7 +380,7 @@ class XLIFFParser
         // Enhanced logging
         $this->logger->logLanguageInfo($this->sourceLanguage, $this->targetLanguage);
         $this->logger->logDuplicateDetails($this->duplicateMap);
-        $this->logger->logContentSamples($results);
+        $this->logger->logContentSamplesDetailed($results);
         $this->logger->logProcessingComplete($results['stats']);
 
         return $results;
