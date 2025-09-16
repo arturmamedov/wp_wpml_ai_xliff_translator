@@ -79,14 +79,21 @@ try {
     }
 
     $allTranslations = [];
+    // and Filter out duplicates before translation
+    function filterUniqueUnits($units) {
+        return array_filter($units, function($unit) {
+            return !$unit['is_duplicate']; // Keep only non-duplicates
+        });
+    }
 
     // Process Brand Voice Content
     if (!empty($results['brand_voice'])) {
         echo "🎨 TRANSLATING BRAND VOICE CONTENT\n";
         echo str_repeat("-", 40) . "\n";
 
+        $uniqueBrandVoice = filterUniqueUnits($results['brand_voice']);
         $brandVoiceTranslations = $translator->translateBrandVoiceContent(
-            $results['brand_voice'],
+            $uniqueBrandVoice,
             $results['target_language']
         );
 
@@ -100,15 +107,17 @@ try {
         echo str_repeat("-", 40) . "\n";
 
         $metadataTranslations = [];
-        $metadataUnits = $results['metadata'];
+        //$metadataUnits = $results['metadata']; // ALL
+        $metadataUnits = filterUniqueUnits($results['metadata']); // uniques
         $totalMetadata = count($metadataUnits);
+        $imt = 0; // TODO: was a fast fix, maybe wrong.. checkit
 
         foreach ($metadataUnits as $index => $unit) {
             $unitId = $unit['id'];
             $sourceText = $unit['source'];
             $contentType = $unit['content_type'] ?? 'metadata';
 
-            echo "🔍 Translating Metadata ({$provider}) (" . ($index + 1) . "/{$totalMetadata}): {$contentType}...\n";
+            echo "🔍 Translating Metadata ({$provider}) (" . ($imt + 1) . "/{$totalMetadata}): {$contentType}...\n";
 
             $translation = $translator->translateMetadata(
                 $sourceText,
