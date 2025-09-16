@@ -234,8 +234,9 @@ class XLIFFParser
 
                 if (!isset($duplicateGroups[$originalId])) {
                     $duplicateGroups[$originalId] = [$originalId];
-                    $this->translationUnits[$originalId]['is_duplicate'] = true;
-                    $this->translationUnits[$originalId]['duplicate_group'] = $originalId;
+                    // this is first occurency not a duplicate...
+                    //$this->translationUnits[$originalId]['is_duplicate'] = true;
+                    //$this->translationUnits[$originalId]['duplicate_group'] = $originalId;
                 }
 
                 $duplicateGroups[$originalId][] = $unitId;
