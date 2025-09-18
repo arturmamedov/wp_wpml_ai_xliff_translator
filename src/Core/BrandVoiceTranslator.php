@@ -7,21 +7,51 @@ use NestsHostels\XLIFFTranslation\Utils\Logger;
 /**
  * BrandVoiceTranslator - Multi-provider translation with Nests Hostels brand voice
  *
- * Supports OpenAI and Claude APIs with configurable prompts and provider switching
+ * Supports OpenAI and Claude APIs with configurable prompts, provider switching,
+ * and glossary-based brand term protection
  */
 class BrandVoiceTranslator
 {
+
     private array $config;
+
     private Logger $logger;
+
     private string $currentProvider;
-    private array $rateLimits = ['last_request_time' => 0];
+
+    private array $rateLimits = [ 'last_request_time' => 0 ];
+
+    private array $glossaryTerms;
+
 
     public function __construct(array $config, Logger $logger)
     {
         $this->config = $config;
         $this->logger = $logger;
         $this->currentProvider = $config['default_provider'];
+        $this->loadGlossaryTerms();
     }
+
+
+    /**
+     * Load and flatten glossary terms for easy access
+     */
+    private function loadGlossaryTerms(): void
+    {
+        $glossary = require __DIR__ . '/../../config/glossary.php';
+
+        // Flatten all glossary categories into a single array
+        $this->glossaryTerms = [];
+        foreach ($glossary as $category => $terms) {
+            $this->glossaryTerms = array_merge($this->glossaryTerms, $terms);
+        }
+
+        // Sort by length (longest first) for better regex matching
+        uksort($this->glossaryTerms, function ($a, $b) {
+            return strlen($b) - strlen($a);
+        });
+    }
+
 
     /**
      * Set provider at runtime (--provider=claude)
@@ -30,13 +60,14 @@ class BrandVoiceTranslator
     {
         $availableProviders = array_keys($this->config['providers']);
 
-        if (!in_array($provider, $availableProviders)) {
+        if ( ! in_array($provider, $availableProviders)) {
             throw new \InvalidArgumentException("Provider '{$provider}' not available. Available: " . implode(', ', $availableProviders));
         }
 
         $this->currentProvider = $provider;
         $this->logger->logError("Provider switched to: {$provider}", null);
     }
+
 
     /**
      * Get available providers
@@ -46,8 +77,9 @@ class BrandVoiceTranslator
         return array_keys($this->config['providers']);
     }
 
+
     /**
-     * Translate single brand voice content unit
+     * Translate single brand voice content unit with glossary protection
      */
     public function translateBrandVoice(string $text, string $targetLanguage, string $context = ''): string
     {
@@ -59,7 +91,11 @@ class BrandVoiceTranslator
 
             $translation = $this->handleApiCall($systemPrompt, $userPrompt);
 
+            // Apply glossary validation to protect brand terms
+            $translation = $this->validateGlossaryTerms($text, $translation);
+
             $this->logger->logTranslationApplied('single-unit', $text, $translation);
+
             return $translation;
 
         } catch (\Exception $e) {
@@ -71,8 +107,9 @@ class BrandVoiceTranslator
         }
     }
 
+
     /**
-     * Translate single metadata/SEO content unit
+     * Translate single metadata/SEO content unit with glossary protection
      */
     public function translateMetadata(string $text, string $targetLanguage, string $seoType = 'general'): string
     {
@@ -84,7 +121,11 @@ class BrandVoiceTranslator
 
             $translation = $this->handleApiCall($systemPrompt, $userPrompt);
 
+            // Apply glossary validation to protect brand terms
+            $translation = $this->validateGlossaryTerms($text, $translation);
+
             $this->logger->logTranslationApplied('metadata-unit', $text, $translation);
+
             return $translation;
 
         } catch (\Exception $e) {
@@ -95,6 +136,7 @@ class BrandVoiceTranslator
             ]);
         }
     }
+
 
     /**
      * Batch translate brand voice content
@@ -125,8 +167,10 @@ class BrandVoiceTranslator
         }
 
         $this->logger->updateTranslationCount(count($translations));
+
         return $translations;
     }
+
 
     /**
      * Route API call to correct provider
@@ -143,44 +187,120 @@ class BrandVoiceTranslator
         }
     }
 
+
     /**
-     * Build brand voice prompt using config templates
+     * Validate that glossary terms remain unchanged in translation
+     */
+    private function validateGlossaryTerms(string $original, string $translation): string
+    {
+        $correctedTranslation = $translation;
+        $corrections = 0;
+
+        foreach ($this->glossaryTerms as $term => $keepAs) {
+            // Only check terms that actually appear in the original text
+            if (stripos($original, $term) !== false) {
+                // Create case-insensitive pattern that preserves word boundaries
+                $pattern = '/\b' . preg_quote($term, '/') . '\b/i';
+
+                // Count matches before correction
+                $beforeMatches = preg_match_all($pattern, $correctedTranslation);
+
+                // Replace with exact case as specified in glossary
+                $correctedTranslation = preg_replace($pattern, $keepAs, $correctedTranslation);
+
+                // Count matches after correction
+                $afterMatches = preg_match_all('/\b' . preg_quote($keepAs, '/') . '\b/', $correctedTranslation);
+
+                if ($beforeMatches > 0 && $afterMatches > $beforeMatches) {
+                    $corrections++;
+                }
+            }
+        }
+
+        // Log glossary corrections if any were made
+        if ($corrections > 0) {
+            $this->logger->logError("Glossary: Protected {$corrections} brand terms in translation", [
+                'original_preview' => substr($original, 0, 60) . '...',
+                'before_correction' => substr($translation, 0, 60) . '...',
+                'after_correction' => substr($correctedTranslation, 0, 60) . '...'
+            ]);
+        }
+
+        return $correctedTranslation;
+    }
+
+
+    /**
+     * Build brand voice prompt with glossary terms inclusion
      */
     private function buildBrandVoicePrompt(string $text, string $targetLanguage, string $context): string
     {
         $langKey = $this->config['language_mapping'][strtolower($targetLanguage)] ?? 'english';
         $template = $this->config['prompts']['brand_voice_user'][$langKey];
 
+        // Build glossary protection text
+        $glossaryText = $this->buildGlossaryInstruction($text);
+
         $basePrompt = str_replace(
-            ['{TEXT}', '{CONTEXT}'],
-            [$text, $context ?: 'General content'],
+            [ '{TEXT}', '{CONTEXT}', '{GLOSSARY}' ],
+            [ $text, $context ?: 'General content', $glossaryText ],
             $template
         );
 
         return $this->wrapPrompt($basePrompt);
     }
 
+
     /**
-     * Build metadata/SEO prompt using config templates
+     * Build metadata/SEO prompt with glossary terms inclusion
      */
     private function buildMetadataPrompt(string $text, string $targetLanguage, string $seoType): string
     {
         $langKey = $this->config['language_mapping'][strtolower($targetLanguage)] ?? 'english';
         $template = $this->config['prompts']['metadata_user'][$langKey];
 
+        // Build glossary protection text
+        $glossaryText = $this->buildGlossaryInstruction($text);
+
         $basePrompt = str_replace(
-            ['{TEXT}', '{SEO_TYPE}', '{CONTEXT}'],
-            [$text, $seoType, 'SEO/Metadata content'],
+            [ '{TEXT}', '{SEO_TYPE}', '{CONTEXT}', '{GLOSSARY}' ],
+            [ $text, $seoType, 'SEO/Metadata content', $glossaryText ],
             $template
         );
 
         return $this->wrapPrompt($basePrompt);
     }
 
+
+    /**
+     * Build context-aware glossary instruction
+     */
+    private function buildGlossaryInstruction(string $text): string
+    {
+        // Find which glossary terms appear in this specific text
+        $relevantTerms = [];
+        foreach ($this->glossaryTerms as $term => $keepAs) {
+            if (stripos($text, $term) !== false) {
+                $relevantTerms[] = $term;
+            }
+        }
+
+        if (empty($relevantTerms)) {
+            return 'No specific brand terms detected in this content.';
+        }
+
+        // Build dynamic instruction based on detected terms
+        $termsList = implode('", "', $relevantTerms);
+
+        return "CRITICAL: Keep these exact terms unchanged: \"{$termsList}\"";
+    }
+
+
     private function wrapPrompt(string $basePrompt): string
     {
         return $basePrompt . "\n\nReturn only the translation text, no explanations and no other versions.";
     }
+
 
     /**
      * OpenAI API call
@@ -190,15 +310,15 @@ class BrandVoiceTranslator
         $providerConfig = $this->config['providers']['openai'];
         $apiKey = getenv($providerConfig['key_env']);
 
-        if (!$apiKey) {
+        if ( ! $apiKey) {
             throw new \Exception("OpenAI API key not found in environment: {$providerConfig['key_env']}");
         }
 
         $data = [
             'model' => $providerConfig['model'],
             'messages' => [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $userPrompt]
+                [ 'role' => 'system', 'content' => $systemPrompt ],
+                [ 'role' => 'user', 'content' => $userPrompt ]
             ],
             'max_tokens' => $providerConfig['max_tokens'],
             'temperature' => $providerConfig['temperature']
@@ -211,12 +331,13 @@ class BrandVoiceTranslator
 
         $response = $this->makeCurlRequest($providerConfig['endpoint'], $data, $headers);
 
-        if (!isset($response['choices'][0]['message']['content'])) {
+        if ( ! isset($response['choices'][0]['message']['content'])) {
             throw new \Exception('Invalid OpenAI API response structure');
         }
 
         return trim($response['choices'][0]['message']['content']);
     }
+
 
     /**
      * Claude API call
@@ -226,7 +347,7 @@ class BrandVoiceTranslator
         $providerConfig = $this->config['providers']['claude'];
         $apiKey = getenv($providerConfig['key_env']);
 
-        if (!$apiKey) {
+        if ( ! $apiKey) {
             throw new \Exception("Claude API key not found in environment: {$providerConfig['key_env']}");
         }
 
@@ -234,7 +355,7 @@ class BrandVoiceTranslator
             'model' => $providerConfig['model'],
             'system' => $systemPrompt,
             'messages' => [
-                ['role' => 'user', 'content' => $userPrompt]
+                [ 'role' => 'user', 'content' => $userPrompt ]
             ],
             'max_tokens' => $providerConfig['max_tokens']
         ];
@@ -247,13 +368,14 @@ class BrandVoiceTranslator
 
         $response = $this->makeCurlRequest($providerConfig['endpoint'], $data, $headers);
 
-        if (!isset($response['content'][0]['text'])) {
+        if ( ! isset($response['content'][0]['text'])) {
             throw new \Exception('Invalid Claude API response structure');
         }
 
         // Trust the system prompt to handle verbosity properly and not add TRANSLATED VERSION: Wake up... [explanations] WHY THIS WORKS: [reasoning]
         return trim($response['content'][0]['text']);
     }
+
 
     /**
      * Generic cURL request handler
@@ -293,6 +415,7 @@ class BrandVoiceTranslator
         return $result;
     }
 
+
     /**
      * Handle translation failure with comprehensive logging
      */
@@ -310,6 +433,7 @@ class BrandVoiceTranslator
         // Fallback to original Spanish text
         return $originalText;
     }
+
 
     /**
      * Respect rate limits
@@ -329,3 +453,4 @@ class BrandVoiceTranslator
         $this->rateLimits['last_request_time'] = time();
     }
 }
+
