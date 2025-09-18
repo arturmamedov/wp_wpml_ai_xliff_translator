@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'default_provider' => 'claude', // Can be overridden by --provider=claude
+    'default_provider' => 'openai', // Can be overridden by --provider=claude
     'rate_limit_rpm' => 3,
     'retry_attempts' => 2,
     'timeout_seconds' => 30,
@@ -37,22 +37,23 @@ UNIVERSAL RULES:
 - NEVER use formal business language, passive voice, or corporate jargon
 
 TECHNICAL REQUIREMENTS:
-- Preserve ALL HTML tags exactly: <strong>, <br/>, <!-- comments -->
+- Preserve ALL HTML tags exactly: <strong>, <br/>, <!-- comments -->, <!-- wp:paragraph -->
 - Keep ALL WordPress shortcodes unchanged: [shortcode_name]
 - Maintain all emojis and special characters  
-- Don\'t translate proper nouns: Duque Nest, Costa Adeje, Tenerife, NEST PASS, Nests Hostels
+- Don\'t translate proper nouns and brand: Duque Nest, Costa Adeje, Tenerife, NEST PASS, Nests Hostels, Nest, Nest Hostel
 - URLs and email addresses stay unchanged
 
 CONTENT-TYPE SPECIFIC ADAPTATIONS:
 
-SOCIAL MEDIA CAPTIONS:
+BE A LITTLE LIKE SOCIAL MEDIA CAPTIONS:
 - Extra casual and punchy
 - 2-3 emojis max per post  
 - Natural call-to-action (not pushy)
 - Hashtag-friendly language
 
-WEBSITE COPY:
+REMEMBER IS A WEBSITE COPY:
 - Casual but informative
+- Keywords: hostel, accommodation, travel, what to do, events, surf 
 - Scannable with short paragraphs
 - Benefits-focused, not feature-heavy
 - Clear practical info mixed with personality
@@ -82,9 +83,9 @@ RESPONSE FORMAT: Always respond with only the translated text, nothing else!',
 
 LANGUAGE-SPECIFIC RULES FOR SPANISH:
 - Use "tú" (never "usted") - we\'re friends here
-- Include casual expressions: "¡Qué guay!" "¡Brutal!" "¡Flipante!"
+- Include casual expressions: "¡Qué guay!" "¡Brutal!" "¡Flipante!", "¡Increíble!"
 - Natural contractions: "pa\'" instead of "para"
-- Gender-inclusive when possible: "@s" or "chicos y chicas"
+- Gender-inclusive when possible: "@s" or "chicos y chicas"!
 
 CONTENT TO TRANSLATE:
 {TEXT}
@@ -98,7 +99,7 @@ Remember: Make it sound like you\'re genuinely excited to share this amazing pla
 
 LANGUAGE-SPECIFIC RULES FOR ENGLISH:
 - Casual American/International English
-- Beach/surf slang: "vibes", "chill", "awesome"
+- Beach/surf slang: "vibes", "chill", "awesome", "amazing"
 - Avoid corporate terms: "utilize"→"use", "facilitate"→"help"
 
 CONTENT TO TRANSLATE:
@@ -146,7 +147,7 @@ Remember: Make it sound like you\'re genuinely excited to share this amazing pla
 LANGUAGE-SPECIFIC RULES FOR ITALIAN:
 - Use "tu" (never "Lei")
 - Expressive terms: "Figata!" "Che figo!" "Assurdo!"
-- Natural particles: "eh", "no?"
+- Natural particles: "eh", "no?", "boh"
 - Keep the musical flow of Italian
 
 CONTENT TO TRANSLATE:
@@ -230,6 +231,8 @@ SEO-SPECIFIC RULES FOR ITALIAN:
 - Use travel terminology for Italian market
 - Optimize for Italian search behavior
 - Include tourism-focused keywords naturally
+
+Keywords: ostello, alloggio, viaggio, vacanza, surf, attività, eventi, feste, festività, cose da fare, cosa fare.
 
 CONTENT TO TRANSLATE:
 {TEXT}
