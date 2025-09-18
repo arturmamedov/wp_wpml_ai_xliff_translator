@@ -92,7 +92,7 @@ class BrandVoiceTranslator
             $translation = $this->handleApiCall($systemPrompt, $userPrompt);
 
             // Apply glossary validation to protect brand terms
-            $translation = $this->validateGlossaryTerms($text, $translation);
+            //$translation = $this->validateGlossaryTerms($text, $translation);
 
             $this->logger->logTranslationApplied('single-unit', $text, $translation);
 
@@ -122,7 +122,7 @@ class BrandVoiceTranslator
             $translation = $this->handleApiCall($systemPrompt, $userPrompt);
 
             // Apply glossary validation to protect brand terms
-            $translation = $this->validateGlossaryTerms($text, $translation);
+            //$translation = $this->validateGlossaryTerms($text, $translation);
 
             $this->logger->logTranslationApplied('metadata-unit', $text, $translation);
 
