@@ -10,7 +10,6 @@ return [
         'Hostel Feature Description',
         'Hostel Services Description H4',
         'excerpt',
-        'Yoast Faq Block'
     ],
 
     'metadata' => [
@@ -20,11 +19,11 @@ return [
         'Twitter Description',
         'Opengraph Description',
         'Opengraph Title',
-        'JSON LD',
         'Title', // SEO titles
         'Alt Text',
         'category',
-        'post_tag'
+        'post_tag',
+        'Yoast Faq Block'
     ],
 
     'non_translatable' => [
@@ -43,6 +42,7 @@ return [
         'Hostel Name', // Brand names
         'Hostel Island', // Geographic names
         'Hostel Address 1', // Addresses
-        'Hostel City' // City names
+        'Hostel City', // City names
+        'JSON LD',
     ]
 ];
