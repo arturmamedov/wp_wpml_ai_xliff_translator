@@ -33,20 +33,24 @@ try {
     // Test content with brand terms that should NOT be translated
     $testContent = [
         'brand_voice_with_terms' => [
-            'spanish' => '¡Bienvenido a Nests Hostels! Reserva tu habitación en Duque Nest, ubicado en Costa Adeje, Tenerife. Disfruta de nuestro NEST PASS y conecta con otros viajeros.',
-            'expected_protected_terms' => ['Nests Hostels', 'Duque Nest', 'Costa Adeje', 'Tenerife', 'NEST PASS']
+            'spanish' => '¡Bienvenido a Nests Hostels! Reserva tu habitación en Arena Nest, ubicado en Costa Adeje, Tenerife. Disfruta de nuestro Nest Pass y conecta con otros viajeros.',
+            'expected_protected_terms' => ['Nests Hostels', 'Arena Nest', 'Costa Adeje', 'Tenerife', 'Nest Pass']
         ],
-        'location_heavy_content' => [
-            'spanish' => 'Situado en el corazón de Playa del Duque, nuestro Las Eras Nest ofrece vistas espectaculares de Tenerife. Cerca de Santa Cruz de Tenerife.',
-            'expected_protected_terms' => ['Playa del Duque', 'Las Eras Nest', 'Tenerife', 'Santa Cruz de Tenerife']
+        'multiple_hostel_names' => [
+            'spanish' => 'Visita Puerto Nest en Las Palmas, Flamingo Nest en Las Eras, o Cisne Nest cerca de Medano. Todos son by Nests Hostels.',
+            'expected_protected_terms' => ['Puerto Nest', 'Las Palmas', 'Flamingo Nest', 'Las Eras', 'Cisne Nest', 'Medano', 'by Nests Hostels']
         ],
-        'contact_info' => [
-            'spanish' => 'Contáctanos en duquenesthostel@gmail.com o llama al +34 655 01 20 55. Visita nestshostels.cloudbeds.com para reservas.',
-            'expected_protected_terms' => ['duquenesthostel@gmail.com', '+34 655 01 20 55', 'nestshostels.cloudbeds.com']
+        'nest_pass_variations' => [
+            'spanish' => 'Con tu Nest Pass month tienes acceso a Los Amigos Nest y Duque. El Nest Pass week incluye Surf Camp by Nest.',
+            'expected_protected_terms' => ['Nest Pass month', 'Los Amigos Nest', 'Duque', 'Nest Pass week', 'Surf Camp', 'by Nest']
         ],
-        'mixed_content' => [
-            'spanish' => 'El Medano Nest en Las Eras está cerca de Instagram y TripAdvisor nos califican como excelente. WordPress facilita las reservas.',
-            'expected_protected_terms' => ['Medano Nest', 'Las Eras', 'Instagram', 'TripAdvisor', 'WordPress']
+        'staff_and_team' => [
+            'spanish' => 'El Nest Team y Nests Staff están aquí para ayudarte. Contacta con Nest Staff en cualquier Nest Hostel.',
+            'expected_protected_terms' => ['Nest Team', 'Nests Staff', 'Nest Staff', 'Nest Hostel']
+        ],
+        'case_variations' => [
+            'spanish' => 'NESTS HOSTELS tiene nests hostels en toda la isla. Cada nest es único, desde duque hasta AGUERE.',
+            'expected_protected_terms' => ['NESTS HOSTELS', 'nests hostels', 'nest', 'duque', 'AGUERE']
         ]
     ];
 
