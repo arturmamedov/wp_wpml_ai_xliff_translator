@@ -7,10 +7,10 @@ require_once __DIR__ . '/../vendor/autoload.php';
  * Usage: php bin/sync-glossary-csv.php glossary_items.csv [--dry-run]
  */
 
-$options = getopt("", ["dry-run", "help"]);
+$options = getopt("", [ "dry-run", "help" ]);
 $csvFile = $argv[1] ?? null;
 
-if (isset($options['help']) || !$csvFile) {
+if (isset($options['help']) || ! $csvFile) {
     echo "📄 CSV Glossary Sync Tool\n\n";
     echo "Usage: php bin/sync-glossary-csv.php glossary_items.csv [--dry-run]\n\n";
     echo "Options:\n";
@@ -21,7 +21,7 @@ if (isset($options['help']) || !$csvFile) {
     exit(0);
 }
 
-if (!file_exists($csvFile)) {
+if ( ! file_exists($csvFile)) {
     echo "❌ CSV file not found: {$csvFile}\n";
     exit(1);
 }
@@ -51,16 +51,20 @@ try {
     $totalTerms = 0;
 
     foreach ($lines as $line) {
-        if (empty($line) || count($line) < 2) continue;
+        if (empty($line) || count($line) < 2) {
+            continue;
+        }
 
         $original = trim($line[$originalCol]);
         $translated = trim($line[$translatedCol]);
         $kind = $kindCol !== false ? trim($line[$kindCol]) : 'general';
 
-        if (empty($original)) continue;
+        if (empty($original)) {
+            continue;
+        }
 
         // Group by kind/category
-        if (!isset($glossaryByCategory[$kind])) {
+        if ( ! isset($glossaryByCategory[$kind])) {
             $glossaryByCategory[$kind] = [];
         }
 

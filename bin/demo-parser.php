@@ -51,7 +51,7 @@ try {
     printf("Target language: %s\n", $results['target_language']);
 
     // Show duplicates if any
-    if (!empty($results['duplicates'])) {
+    if ( ! empty($results['duplicates'])) {
         echo "\n🔄 DUPLICATE GROUPS:\n";
         echo str_repeat("-", 30) . "\n";
 
@@ -69,8 +69,8 @@ try {
     echo "\n📝 SAMPLE CONTENT BY STRATEGY:\n";
     echo str_repeat("-", 40) . "\n";
 
-    foreach (['brand_voice', 'metadata', 'non_translatable'] as $strategy) {
-        if (!empty($results[$strategy])) {
+    foreach ([ 'brand_voice', 'metadata', 'non_translatable' ] as $strategy) {
+        if ( ! empty($results[$strategy])) {
             echo "\n🎯 {$strategy} (showing first 3):\n";
 
             $samples = array_slice($results[$strategy], 0, 3);
@@ -100,7 +100,7 @@ try {
     }
 
     // Before translation
-    if (!empty($mockTranslations)) {
+    if ( ! empty($mockTranslations)) {
         $logger->logTranslationStart($results['target_language']);
 
         echo "Inserting mock translations for " . count($mockTranslations) . " units...\n";

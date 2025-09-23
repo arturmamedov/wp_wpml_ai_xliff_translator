@@ -20,7 +20,7 @@ $directories = [
 
 echo "📁 Creating directory structure...\n";
 foreach ($directories as $dir) {
-    if (!is_dir($dir)) {
+    if ( ! is_dir($dir)) {
         mkdir($dir, 0755, true);
         echo "  ✅ Created: {$dir}/\n";
     } else {
@@ -39,7 +39,7 @@ if (version_compare(PHP_VERSION, $requiredVersion, '>=')) {
     exit(1);
 }
 
-$requiredExtensions = ['dom', 'libxml', 'json'];
+$requiredExtensions = [ 'dom', 'libxml', 'json' ];
 foreach ($requiredExtensions as $ext) {
     if (extension_loaded($ext)) {
         echo "  ✅ Extension: {$ext}\n";
@@ -60,7 +60,7 @@ if (file_exists('vendor/autoload.php')) {
 // Check for sample XLIFF files
 echo "\n📄 Checking for input files...\n";
 $inputFiles = glob('input/*.xliff');
-if (!empty($inputFiles)) {
+if ( ! empty($inputFiles)) {
     echo "  ✅ Found " . count($inputFiles) . " XLIFF files in input/\n";
     foreach ($inputFiles as $file) {
         echo "    - " . basename($file) . "\n";

@@ -12,11 +12,11 @@ use NestsHostels\XLIFFTranslation\Utils\Logger;
  */
 
 // Parse command line arguments
-$options = getopt("", ["provider:", "output:", "help"]);
+$options = getopt("", [ "provider:", "output:", "help" ]);
 $inputFile = $argv[1] ?? null;
 
 // Help message
-if (isset($options['help']) || !$inputFile) {
+if (isset($options['help']) || ! $inputFile) {
     echo "🚀 XLIFF Translation Script - Nests Hostels Brand Voice\n\n";
     echo "Usage: php bin/translate.php input.xliff [options]\n\n";
     echo "Options:\n";
@@ -31,7 +31,7 @@ if (isset($options['help']) || !$inputFile) {
 }
 
 // Validate input file
-if (!file_exists($inputFile)) {
+if ( ! file_exists($inputFile)) {
     echo "❌ Error: Input file not found: {$inputFile}\n";
     exit(1);
 }
@@ -72,7 +72,7 @@ try {
     // Check API keys
     $providerConfig = $config['providers'][$provider];
     $apiKey = getenv($providerConfig['key_env']);
-    if (!$apiKey) {
+    if ( ! $apiKey) {
         echo "❌ Error: API key not found in environment: {$providerConfig['key_env']}\n";
         echo "Please set your API key: export {$providerConfig['key_env']}=your_key_here\n";
         exit(1);
@@ -80,14 +80,15 @@ try {
 
     $allTranslations = [];
     // and Filter out duplicates before translation
-    function filterUniqueUnits($units) {
-        return array_filter($units, function($unit) {
-            return !$unit['is_duplicate']; // Keep only non-duplicates
+    function filterUniqueUnits($units)
+    {
+        return array_filter($units, function ($unit) {
+            return ! $unit['is_duplicate']; // Keep only non-duplicates
         });
     }
 
     // Process Brand Voice Content
-    if (!empty($results['brand_voice'])) {
+    if ( ! empty($results['brand_voice'])) {
         echo "🎨 TRANSLATING BRAND VOICE CONTENT\n";
         echo str_repeat("-", 40) . "\n";
 
@@ -102,7 +103,7 @@ try {
     }
 
     // Process Metadata Content
-    if (!empty($results['metadata'])) {
+    if ( ! empty($results['metadata'])) {
         echo "🔍 TRANSLATING METADATA/SEO CONTENT\n";
         echo str_repeat("-", 40) . "\n";
 
@@ -138,7 +139,7 @@ try {
     }
 
     // Process Non-Translatable Content (mark as translated but keep original)
-    if (!empty($results['non_translatable'])) {
+    if ( ! empty($results['non_translatable'])) {
         echo "📋 PROCESSING NON-TRANSLATABLE CONTENT\n";
         echo str_repeat("-", 40) . "\n";
 
@@ -161,7 +162,7 @@ try {
 
     // Determine output path
     $outputPath = $options['output'] ?? null;
-    if (!$outputPath) {
+    if ( ! $outputPath) {
         $pathInfo = pathinfo($inputFile);
         $outputPath = $pathInfo['dirname'] . '/translated/' . $pathInfo['filename'] . '_translated.xliff';
     }

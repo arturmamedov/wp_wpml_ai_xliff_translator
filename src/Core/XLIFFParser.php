@@ -17,15 +17,25 @@ use NestsHostels\XLIFFTranslation\Utils\Logger;
  */
 class XLIFFParser
 {
+
     private DOMDocument $dom;
+
     private DOMXPath $xpath;
+
     private Logger $logger;
+
     private array $contentTypes;
+
     private array $nonTranslatableRules;
+
     private array $translationUnits = [];
+
     private array $duplicateMap = [];
+
     private string $sourceLanguage;
+
     private string $targetLanguage;
+
 
     public function __construct(Logger $logger)
     {
@@ -39,19 +49,20 @@ class XLIFFParser
         $this->dom->formatOutput = false; // Preserve original formatting
     }
 
+
     /**
      * Parse XLIFF file and extract translation units
      */
     public function parseXLIFFFile(string $filePath): array
     {
-        if (!file_exists($filePath)) {
+        if ( ! file_exists($filePath)) {
             throw new \Exception("XLIFF file not found: {$filePath}");
         }
 
         $this->logger->logFileStart();
 
         // Load and validate XLIFF
-        if (!$this->dom->load($filePath)) {
+        if ( ! $this->dom->load($filePath)) {
             throw new \Exception("Failed to load XLIFF file: {$filePath}");
         }
 
@@ -70,12 +81,13 @@ class XLIFFParser
         return $this->getProcessingResults();
     }
 
+
     /**
      * Log final classification stats after all processing
      */
     private function logFinalStats(): void
     {
-        $stats = ['brand_voice' => 0, 'metadata' => 0, 'non_translatable' => 0];
+        $stats = [ 'brand_voice' => 0, 'metadata' => 0, 'non_translatable' => 0 ];
 
         foreach ($this->translationUnits as $unit) {
             $strategy = $unit['translation_strategy'];
@@ -84,6 +96,7 @@ class XLIFFParser
 
         $this->logger->logContentTypeStats($stats);
     }
+
 
     /**
      * Setup XPath with XLIFF namespace
@@ -94,6 +107,7 @@ class XLIFFParser
         $this->xpath->registerNamespace('xliff', 'urn:oasis:names:tc:xliff:document:1.2');
     }
 
+
     /**
      * Extract source and target languages from XLIFF header
      */
@@ -101,13 +115,14 @@ class XLIFFParser
     {
         $fileNode = $this->xpath->query('//xliff:file')->item(0);
 
-        if (!$fileNode) {
+        if ( ! $fileNode) {
             throw new \Exception('Invalid XLIFF structure: No file element found');
         }
 
         $this->sourceLanguage = $fileNode->getAttribute('source-language') ?: 'es';
         $this->targetLanguage = $fileNode->getAttribute('target-language') ?: 'en';
     }
+
 
     /**
      * Extract all translation units with their metadata
@@ -120,7 +135,7 @@ class XLIFFParser
             $unitId = $unit->getAttribute('id');
             $sourceNode = $this->xpath->query('.//xliff:source', $unit)->item(0);
 
-            if (!$sourceNode) {
+            if ( ! $sourceNode) {
                 $this->logger->logError("No source found for unit: {$unitId}");
                 continue;
             }
@@ -160,14 +175,17 @@ class XLIFFParser
      *
      * @return bool
      */
-    private function sourceNodeHasCDATA($sourceNode): bool {
+    private function sourceNodeHasCDATA($sourceNode): bool
+    {
         foreach ($sourceNode->childNodes as $child) {
             if ($child->nodeType === XML_CDATA_SECTION_NODE) {
                 return true;
             }
         }
+
         return false;
     }
+
 
     /**
      * Extract text content handling CDATA sections
@@ -189,6 +207,7 @@ class XLIFFParser
 
         return trim($content);
     }
+
 
     /**
      * Extract extradata metadata for content classification
@@ -216,6 +235,7 @@ class XLIFFParser
         return $extradata;
     }
 
+
     /**
      * Detect and group duplicate content for batch translation
      */
@@ -232,8 +252,8 @@ class XLIFFParser
                 // This is a duplicate
                 $originalId = $contentHash[$hash];
 
-                if (!isset($duplicateGroups[$originalId])) {
-                    $duplicateGroups[$originalId] = [$originalId];
+                if ( ! isset($duplicateGroups[$originalId])) {
+                    $duplicateGroups[$originalId] = [ $originalId ];
                     // this is first occurency not a duplicate...
                     //$this->translationUnits[$originalId]['is_duplicate'] = true;
                     //$this->translationUnits[$originalId]['duplicate_group'] = $originalId;
@@ -253,7 +273,7 @@ class XLIFFParser
 
         if ($duplicateCount > 0) {
             $examples = array_slice(array_keys($duplicateGroups), 0, 3);
-            $exampleTexts = array_map(function($id) {
+            $exampleTexts = array_map(function ($id) {
                 return substr($this->translationUnits[$id]['source'], 0, 160) . '...';
             }, $examples);
 
@@ -261,19 +281,20 @@ class XLIFFParser
         }
     }
 
+
     /**
      * Classify content based on extradata and resname with fallback strategy
      */
     private function classifyUnits(): void
     {
-        $stats = ['brand_voice' => 0, 'metadata' => 0, 'non_translatable' => 0];
+        $stats = [ 'brand_voice' => 0, 'metadata' => 0, 'non_translatable' => 0 ];
 
         foreach ($this->translationUnits as &$unit) {
             // Primary: Use extradata unit field
             $contentType = $unit['extradata']['unit'] ?? null;
 
             // Fallback: Use resname attribute if extradata missing
-            if (!$contentType) {
+            if ( ! $contentType) {
                 $contentType = $unit['dom_node']->getAttribute('resname');
             }
 
@@ -307,6 +328,7 @@ class XLIFFParser
         $this->logger->logContentTypeStats($stats);
     }
 
+
     /**
      * Apply non-translatable rules to content
      */
@@ -318,7 +340,7 @@ class XLIFFParser
             }
 
             // Trust smart classification - don't override intelligent decisions
-            if (in_array($unit['translation_strategy'], ['brand_voice', 'metadata'])) {
+            if (in_array($unit['translation_strategy'], [ 'brand_voice', 'metadata' ])) {
                 continue; // Trust the intelligent classification
             }
             // TODO: #1 pattern may be to strict with <!-- wp:paragraph --> and other WP tags, or HTML a REGEXP that check content inside also needed
@@ -347,6 +369,7 @@ class XLIFFParser
             }
         }
     }
+
 
     /**
      * Get processing results organized by translation strategy
@@ -386,6 +409,7 @@ class XLIFFParser
         return $results;
     }
 
+
     /**
      * Insert translations back into the DOM structure
      */
@@ -394,7 +418,7 @@ class XLIFFParser
         $this->logger->logTranslationBatch($translations, $this->duplicateMap);
 
         foreach ($translations as $unitId => $translatedText) {
-            if (!isset($this->translationUnits[$unitId])) {
+            if ( ! isset($this->translationUnits[$unitId])) {
                 continue;
             }
 
@@ -421,12 +445,13 @@ class XLIFFParser
         }
     }
 
+
     /**
      * Insert translation for a single unit
      */
     private function insertSingleTranslation(string $unitId, string $translation): void
     {
-        if (!isset($this->translationUnits[$unitId])) {
+        if ( ! isset($this->translationUnits[$unitId])) {
             return;
         }
 
@@ -434,7 +459,7 @@ class XLIFFParser
         $transUnitNode = $unit['dom_node'];
         $targetNode = $this->xpath->query('.//xliff:target', $transUnitNode)->item(0);
 
-        if (!$targetNode) {
+        if ( ! $targetNode) {
             $targetNode = $this->dom->createElement('target');
             $sourceNode = $this->xpath->query('.//xliff:source', $transUnitNode)->item(0);
             $sourceNode->parentNode->insertBefore($targetNode, $sourceNode->nextSibling);
@@ -460,13 +485,14 @@ class XLIFFParser
         }
     }
 
+
     /**
      * Save the processed XLIFF file
      */
     public function saveToFile(string $outputPath): bool
     {
         $outputDir = dirname($outputPath);
-        if (!is_dir($outputDir)) {
+        if ( ! is_dir($outputDir)) {
             mkdir($outputDir, 0755, true);
         }
 
@@ -474,21 +500,24 @@ class XLIFFParser
 
         if ($result === false) {
             $this->logger->logError("Failed to save XLIFF file");
+
             return false;
         }
 
         return true;
     }
 
+
     /**
      * Get translation units by strategy for external processing
      */
     public function getUnitsByStrategy(string $strategy): array
     {
-        return array_filter($this->translationUnits, function($unit) use ($strategy) {
+        return array_filter($this->translationUnits, function ($unit) use ($strategy) {
             return $unit['translation_strategy'] === $strategy;
         });
     }
+
 
     /**
      * Get source and target languages

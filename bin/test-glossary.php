@@ -10,7 +10,7 @@ use NestsHostels\XLIFFTranslation\Utils\Logger;
  * Usage: php bin/test-glossary.php [--provider=claude|openai] [--lang=en|de|fr|it]
  */
 
-$options = getopt("", ["provider:", "lang:", "help"]);
+$options = getopt("", [ "provider:", "lang:", "help" ]);
 
 if (isset($options['help'])) {
     echo "🔒 Glossary Protection Test Script\n\n";
@@ -34,23 +34,31 @@ try {
     $testContent = [
         'brand_voice_with_terms' => [
             'spanish' => '¡Bienvenido a Nests Hostels! Reserva tu habitación en Arena Nest, ubicado en Costa Adeje, Tenerife. Disfruta de nuestro Nest Pass y conecta con otros viajeros.',
-            'expected_protected_terms' => ['Nests Hostels', 'Arena Nest', 'Costa Adeje', 'Tenerife', 'Nest Pass']
+            'expected_protected_terms' => [ 'Nests Hostels', 'Arena Nest', 'Costa Adeje', 'Tenerife', 'Nest Pass' ]
         ],
         'multiple_hostel_names' => [
             'spanish' => 'Visita Puerto Nest en Las Palmas, Flamingo Nest en Las Eras, o Cisne Nest cerca de Medano. Todos son by Nests Hostels.',
-            'expected_protected_terms' => ['Puerto Nest', 'Las Palmas', 'Flamingo Nest', 'Las Eras', 'Cisne Nest', 'Medano', 'by Nests Hostels']
+            'expected_protected_terms' => [
+                'Puerto Nest',
+                'Las Palmas',
+                'Flamingo Nest',
+                'Las Eras',
+                'Cisne Nest',
+                'Medano',
+                'by Nests Hostels'
+            ]
         ],
         'nest_pass_variations' => [
             'spanish' => 'Con tu Nest Pass month tienes acceso a Los Amigos Nest y Duque. El Nest Pass week incluye Surf Camp by Nest.',
-            'expected_protected_terms' => ['Nest Pass month', 'Los Amigos Nest', 'Duque', 'Nest Pass week', 'Surf Camp', 'by Nest']
+            'expected_protected_terms' => [ 'Nest Pass month', 'Los Amigos Nest', 'Duque', 'Nest Pass week', 'Surf Camp', 'by Nest' ]
         ],
         'staff_and_team' => [
             'spanish' => 'El Nest Team y Nests Staff están aquí para ayudarte. Contacta con Nest Staff en cualquier Nest Hostel.',
-            'expected_protected_terms' => ['Nest Team', 'Nests Staff', 'Nest Staff', 'Nest Hostel']
+            'expected_protected_terms' => [ 'Nest Team', 'Nests Staff', 'Nest Staff', 'Nest Hostel' ]
         ],
         'case_variations' => [
             'spanish' => 'NESTS HOSTELS tiene nests hostels en toda la isla. Cada nest es único, desde duque hasta AGUERE.',
-            'expected_protected_terms' => ['NESTS HOSTELS', 'nests hostels', 'nest', 'duque', 'AGUERE']
+            'expected_protected_terms' => [ 'NESTS HOSTELS', 'nests hostels', 'nest', 'duque', 'AGUERE' ]
         ]
     ];
 
@@ -74,7 +82,7 @@ try {
     $providerConfig = $config['providers'][$testProvider];
     $apiKey = getenv($providerConfig['key_env']);
 
-    if (!$apiKey) {
+    if ( ! $apiKey) {
         echo "❌ API key not found: {$providerConfig['key_env']}\n";
         echo "   Set it with: export {$providerConfig['key_env']}=your_key_here\n\n";
         exit(1);

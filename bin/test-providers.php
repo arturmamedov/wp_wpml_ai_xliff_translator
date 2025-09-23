@@ -10,7 +10,7 @@ use NestsHostels\XLIFFTranslation\Utils\Logger;
  * Usage: php bin/test-providers.php [--provider=claude|openai]
  */
 
-$options = getopt("", ["provider:", "help"]);
+$options = getopt("", [ "provider:", "help" ]);
 
 if (isset($options['help'])) {
     echo "🧪 Provider Testing Script\n\n";
@@ -48,7 +48,7 @@ try {
     if ($testProvider === 'both') {
         $providersToTest = $translator->getAvailableProviders();
     } else {
-        $providersToTest = [$testProvider];
+        $providersToTest = [ $testProvider ];
     }
 
     echo "🧪 TESTING TRANSLATION PROVIDERS\n";
@@ -62,7 +62,7 @@ try {
         $providerConfig = $config['providers'][$provider];
         $apiKey = getenv($providerConfig['key_env']);
 
-        if (!$apiKey) {
+        if ( ! $apiKey) {
             echo "❌ API key not found: {$providerConfig['key_env']}\n";
             echo "   Set it with: export {$providerConfig['key_env']}=your_key_here\n\n";
             continue;

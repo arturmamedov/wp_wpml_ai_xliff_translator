@@ -8,14 +8,19 @@ namespace NestsHostels\XLIFFTranslation\Utils;
  */
 class Logger
 {
+
     private string $logFile;
+
     private string $sessionId;
+
     private array $failedFiles = [];
+
     private array $sessionStats = [];
+
 
     public function __construct(string $logDir = 'logs', ?string $filename = null)
     {
-        if (!is_dir($logDir)) {
+        if ( ! is_dir($logDir)) {
             mkdir($logDir, 0755, true);
         }
 
@@ -34,12 +39,14 @@ class Logger
         $this->initializeLog();
     }
 
+
     private function initializeLog(): void
     {
         $this->writeLog('INFO', '=== XLIFF Translation Session Started ===');
         $this->writeLog('INFO', 'Timestamp: ' . date('Y-m-d H:i:s'));
         $this->writeLog('INFO', 'PHP Version: ' . PHP_VERSION);
     }
+
 
     public function logFileStart(): void
     {
@@ -54,12 +61,14 @@ class Logger
         ];
     }
 
+
     public function logParsingStart(): void
     {
         $this->writeLog('INFO', "========================================");
         $this->writeLog('INFO', "PARSING XLIFF FILE: {$this->filename}");
         $this->writeLog('INFO', "========================================");
     }
+
 
     public function logParsingResults(array $results): void
     {
@@ -76,10 +85,12 @@ class Logger
         $this->writeLog('INFO', "Target language: {$results['target_language']}");
     }
 
+
     public function logDuplicateGroupsDetailed(array $duplicateGroups, array $translationUnits): void
     {
         if (empty($duplicateGroups)) {
             $this->writeLog('INFO', "No duplicate groups found");
+
             return;
         }
 
@@ -100,14 +111,15 @@ class Logger
         }
     }
 
+
     public function logContentSamplesDetailed(array $results): void
     {
         $this->writeLog('INFO', "========================================");
         $this->writeLog('INFO', "CONTENT SAMPLES BY TRANSLATION STRATEGY");
         $this->writeLog('INFO', "========================================");
 
-        foreach (['brand_voice', 'metadata', 'non_translatable'] as $strategy) {
-            if (!empty($results[$strategy])) {
+        foreach ([ 'brand_voice', 'metadata', 'non_translatable' ] as $strategy) {
+            if ( ! empty($results[$strategy])) {
                 $count = count($results[$strategy]);
                 $this->writeLog('INFO', "{$strategy}: {$count} units");
 
@@ -138,6 +150,7 @@ class Logger
         }
     }
 
+
     public function logTranslationApplied(string $unitId, string $originalText, string $translatedText, bool $isDuplicate = false): void
     {
         $originalPreview = substr($originalText, 0, 160) . (strlen($originalText) > 60 ? '...' : '');
@@ -149,6 +162,7 @@ class Logger
         $this->writeLog('DEBUG', "  Original: {$originalPreview}");
         $this->writeLog('DEBUG', "  Translation: {$translatedPreview}");
     }
+
 
     public function logTranslationBatch(array $translations, array $duplicateMap): void
     {
@@ -167,22 +181,25 @@ class Logger
         $this->writeLog('INFO', "Total units translated: " . ($totalTranslations + $duplicatesApplied));
     }
 
+
     public function logUnitsFound(int $count): void
     {
         $this->writeLog('INFO', "Found {$count} translation units in {$this->filename}");
         $this->sessionStats[$this->filename]['units_found'] = $count;
     }
 
+
     public function logDuplicatesFound(int $count, array $examples = []): void
     {
         $this->writeLog('INFO', "Detected {$count} duplicates in {$this->filename}");
         $this->sessionStats[$this->filename]['duplicates_found'] = $count;
 
-        if (!empty($examples)) {
+        if ( ! empty($examples)) {
             $exampleText = implode(', ', array_slice($examples, 0, 3));
             $this->writeLog('DEBUG', "Duplicate examples: {$exampleText}");
         }
     }
+
 
     public function logDuplicateDetails(array $duplicateGroups): void
     {
@@ -202,10 +219,12 @@ class Logger
         }
     }
 
+
     public function logLanguageInfo(string $sourceLanguage, string $targetLanguage): void
     {
         $this->writeLog('INFO', "Source language: {$sourceLanguage} → Target language: {$targetLanguage}");
     }
+
 
     public function logProcessingComplete(array $stats): void
     {
@@ -214,6 +233,7 @@ class Logger
         $this->writeLog('INFO', "Brand voice: {$stats['brand_voice']} | Metadata: {$stats['metadata']} | Non-translatable: {$stats['non_translatable']}");
         $this->writeLog('INFO', "Duplicate groups: {$stats['duplicates']}");
     }
+
 
     public function logContentTypeStats(array $stats): void
     {
@@ -228,12 +248,14 @@ class Logger
         $this->sessionStats[$this->filename]['non_translatable'] = $nonTranslatable;
     }
 
+
     public function logTranslationStart(string $targetLanguage): void
     {
         $this->writeLog('INFO', "========================================");
         $this->writeLog('INFO', "STARTING TRANSLATION TO {$targetLanguage}");
         $this->writeLog('INFO', "========================================");
     }
+
 
     public function updateTranslationCount(int $count): void
     {
@@ -242,11 +264,13 @@ class Logger
         }
     }
 
+
     public function logTranslationSuccess(string $targetLanguage, string $outputPath): void
     {
         $this->writeLog('SUCCESS', "Translated to {$targetLanguage} → {$outputPath}");
         //$this->sessionStats[$this->filename]['units_translated']++; // TODO: i think this was designed for use this log after each translation
     }
+
 
     public function logError(string $error, ?array $unit = null): void
     {
@@ -259,10 +283,11 @@ class Logger
 
         $this->sessionStats[$this->filename]['errors']++;
 
-        if (!in_array($this->filename, $this->failedFiles)) {
+        if ( ! in_array($this->filename, $this->failedFiles)) {
             $this->failedFiles[] = $this->filename;
         }
     }
+
 
     public function logFileComplete(): void
     {
@@ -278,14 +303,17 @@ class Logger
         $this->writeLog('INFO', "Duplicates handled: {$stats['duplicates_found']}");
         $this->writeLog('INFO', "Errors: {$stats['errors']}");
     }
+
+
     public function logFileFailure(string $reason): void
     {
         $this->writeLog('ERROR', "File failed: {$this->filename} - {$reason}");
 
-        if (!in_array($this->filename, $this->failedFiles)) {
+        if ( ! in_array($this->filename, $this->failedFiles)) {
             $this->failedFiles[] = $this->filename;
         }
     }
+
 
     public function logSessionSummary(): void
     {
@@ -297,7 +325,7 @@ class Logger
         $this->writeLog('INFO', "Total files processed: {$totalFiles}");
         $this->writeLog('INFO', "Successful: {$successCount} | Failed: {$failedCount}");
 
-        if (!empty($this->failedFiles)) {
+        if ( ! empty($this->failedFiles)) {
             $this->writeLog('ERROR', 'Failed files for reprocessing:');
             foreach ($this->failedFiles as $file) {
                 $this->writeLog('ERROR', "  - {$file}");
@@ -314,26 +342,30 @@ class Logger
         $this->writeLog('INFO', "Total duplicates handled: {$totalDuplicates}");
     }
 
+
     public function getFailedFiles(): array
     {
         return $this->failedFiles;
     }
+
 
     public function getSessionStats(): array
     {
         return $this->sessionStats;
     }
 
+
     private function writeLog(string $level, string $message): void
     {
         $timestamp = date('Y-m-d H:i:s');
-        $logEntry = "[{$timestamp}|".basename(__FILE__)."/".__LINE__."] {$level}: {$message}" . PHP_EOL;
+        $logEntry = "[{$timestamp}|" . basename(__FILE__) . "/" . __LINE__ . "] {$level}: {$message}" . PHP_EOL;
 
         file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
 
         // Also output to console for immediate feedback
         $this->outputToConsole($level, $message);
     }
+
 
     private function outputToConsole(string $level, string $message): void
     {
