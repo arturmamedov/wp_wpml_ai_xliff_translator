@@ -343,6 +343,73 @@ class Logger
     }
 
 
+    /**
+     * Add these methods to your existing src/Utils/Logger.php class
+     * (Insert at the end of the class, before the closing brace)
+     */
+
+// Batch-specific logging methods
+    public function logBatchStart(string $batchId, array $config): void
+    {
+        $fileCount = count($config['files'] ?? []);
+        $languageCount = count($config['languages'] ?? []);
+        $totalJobs = $fileCount * $languageCount;
+
+        $this->writeLog('INFO', '=== BATCH TRANSLATION STARTED ===');
+        $this->writeLog('INFO', "Batch ID: {$batchId}");
+        $this->writeLog('INFO', "Provider: {$config['provider']}");
+        $this->writeLog('INFO', "Files to process: {$fileCount}");
+        $this->writeLog('INFO', "Target languages: " . implode(', ', $config['languages'] ?? []));
+        $this->writeLog('INFO', "Total translation jobs: {$totalJobs}");
+        $this->writeLog('INFO', "Output folder: {$config['output_folder']}");
+    }
+
+
+    public function logBatchProgress(int $completed, int $total, float $successRate): void
+    {
+        $this->writeLog('INFO', sprintf(
+            "Batch Progress: %d/%d completed (%.1f%% success rate)",
+            $completed, $total, $successRate * 100
+        ));
+    }
+
+
+    public function logBatchComplete(array $results): void
+    {
+        $this->writeLog('INFO', '=== BATCH TRANSLATION COMPLETED ===');
+        $this->writeLog('INFO', "Successful: {$results['success_count']}");
+        $this->writeLog('INFO', "Failed: {$results['failed_count']}");
+        $this->writeLog('INFO', "Skipped: {$results['skipped_count']}");
+        $this->writeLog('INFO', "Success rate: " . number_format($results['success_rate'] * 100, 1) . "%");
+        $this->writeLog('INFO', "Total time: " . gmdate('H:i:s', $results['total_time']));
+
+        if ( ! empty($results['failed_files'])) {
+            $this->writeLog('ERROR', 'Failed files:');
+            foreach ($results['failed_files'] as $failed) {
+                $this->writeLog('ERROR', "  - {$failed}");
+            }
+        }
+    }
+
+
+    public function logJobStart(string $filename, string $targetLang, int $currentJob, int $totalJobs): void
+    {
+        $this->writeLog('INFO', sprintf(
+            "[Job %d/%d] Processing: %s → %s",
+            $currentJob, $totalJobs, $filename, $targetLang
+        ));
+    }
+
+
+    public function logJobComplete(string $filename, string $targetLang, bool $success, ?string $error = null): void
+    {
+        $status = $success ? 'SUCCESS' : 'FAILED';
+        $this->writeLog($success ? 'INFO' : 'ERROR',
+            "[{$status}] {$filename} → {$targetLang}" . ($error ? " - {$error}" : '')
+        );
+    }
+
+
     public function getFailedFiles(): array
     {
         return $this->failedFiles;
