@@ -112,6 +112,22 @@ try {
     echo "Success rate: " . number_format($results['success_rate'] * 100, 1) . "%\n";
     echo "Total processing time: " . gmdate('H:i:s', $results['total_time']) . "\n";
 
+    // Show duplicate optimization results
+    if ( ! empty($results['duplicate_savings'])) {
+        $savings = $results['duplicate_savings'];
+        $totalSaved = $savings['total_duplicates_saved'];
+        $apiCallsMade = $savings['total_api_calls_made'];
+        $apiCallsWouldHave = $savings['total_api_calls_would_have_made'];
+
+        if ($totalSaved > 0) {
+            $savingsPercent = $apiCallsWouldHave > 0 ? ($totalSaved / $apiCallsWouldHave) * 100 : 0;
+            echo "\n💰 DUPLICATE OPTIMIZATION RESULTS:\n";
+            echo "API calls made: {$apiCallsMade}\n";
+            echo "API calls saved: {$totalSaved}\n";
+            echo "Total savings: " . number_format($savingsPercent, 1) . "%\n";
+        }
+    }
+
     // Show language breakdown
     if ( ! empty($results['language_breakdown'])) {
         echo "\nLanguage breakdown:\n";

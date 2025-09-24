@@ -32,5 +32,4 @@ return [
     'max_files_per_batch' => 1000,
 
     // Note: Each file is processed once to its designated target language
-    // No multiplication by language count needed
 ];

@@ -27,6 +27,8 @@ class BatchProcessor
 
     private array $batchConfig;
 
+    private array $lastFileStats = []; // Track stats from last processed file
+
 
     public function __construct(array $config, Logger $logger)
     {
@@ -109,7 +111,12 @@ class BatchProcessor
             'failed_files' => [],
             'success_rate' => 0,
             'total_time' => 0,
-            'language_breakdown' => [] // Track which languages were processed
+            'language_breakdown' => [], // Track which languages were processed
+            'duplicate_savings' => [
+                'total_duplicates_saved' => 0,
+                'total_api_calls_made' => 0,
+                'total_api_calls_would_have_made' => 0
+            ]
         ];
 
         $this->logger->logError("=== BATCH PROCESSING STARTED ===", null);
@@ -166,7 +173,22 @@ class BatchProcessor
                     }
                     $results['language_breakdown'][$targetLang]++;
 
-                    echo " [SUCCESS]\n";
+                    echo " [SUCCESS]";
+
+                    // Accumulate duplicate savings statistics
+                    if (isset($this->lastFileStats)) {
+                        $duplicatesSaved = $this->lastFileStats['duplicates_saved'] ?? 0;
+                        $totalUnits = $this->lastFileStats['total_units'] ?? 0;
+
+                        $results['duplicate_savings']['total_duplicates_saved'] += $duplicatesSaved;
+                        $results['duplicate_savings']['total_api_calls_made'] += ($totalUnits - $duplicatesSaved);
+                        $results['duplicate_savings']['total_api_calls_would_have_made'] += $totalUnits;
+
+                        if ($duplicatesSaved > 0) {
+                            echo " (saved {$duplicatesSaved} duplicate API calls)";
+                        }
+                    }
+                    echo "\n";
                 } else {
                     $this->markJobCompleted($filename, 'failed');
                     $results['failed_count']++;
@@ -239,6 +261,18 @@ class BatchProcessor
 
 
     /**
+     * Filter out duplicate units before translation to avoid redundant API calls
+     * return array
+     */
+    public function filterUniqueUnits($units): array
+    {
+        return array_filter($units, function ($unit) {
+            return ! $unit['is_duplicate']; // Keep only non-duplicates
+        });
+    }
+
+
+    /**
      * Process single file for one target language using existing components
      */
     private function processSingleFile(string $filePath, string $targetLang, string $provider, string $outputFolder): bool
@@ -255,30 +289,52 @@ class BatchProcessor
             // Parse file (existing logic)
             $results = $parser->parseXLIFFFile($filePath);
 
-            // Translate content (existing logic)
-            $allTranslations = [];
+            // Calculate duplicate savings for statistics
+            $totalUnits = $results['stats']['total_units'];
+            $duplicateGroups = count($results['duplicates']);
+            $duplicatesSaved = 0;
 
-            // Brand voice content
-            if ( ! empty($results['brand_voice'])) {
-                $brandTranslations = $translator->translateBrandVoiceContent(
-                    $results['brand_voice'],
-                    $targetLang
-                );
-                $allTranslations = array_merge($allTranslations, $brandTranslations);
+            // Count how many API calls we're saving through duplicate detection
+            foreach ($results['duplicates'] as $originalId => $duplicateIds) {
+                $duplicatesSaved += count($duplicateIds) - 1; // -1 because we still translate the original
             }
 
-            // Metadata content
+            // Store stats for progress display
+            $this->lastFileStats = [
+                'total_units' => $totalUnits,
+                'duplicate_groups' => $duplicateGroups,
+                'duplicates_saved' => $duplicatesSaved
+            ];
+
+            $allTranslations = [];
+
+            // Process Brand Voice Content
+            if ( ! empty($results['brand_voice'])) {
+                $uniqueBrandVoice = $this->filterUniqueUnits($results['brand_voice']);
+                $brandVoiceTranslations = $translator->translateBrandVoiceContent(
+                    $uniqueBrandVoice,
+                    $targetLang
+                );
+                $allTranslations = array_merge($allTranslations, $brandVoiceTranslations);
+            }
+
+            // Process Metadata Content
             if ( ! empty($results['metadata'])) {
-                foreach ($results['metadata'] as $unit) {
+                $metadataTranslations = [];
+                $metadataUnits = $this->filterUniqueUnits($results['metadata']); // Filter duplicates
+
+                foreach ($metadataUnits as $unit) {
                     $translation = $translator->translateMetadata(
                         $unit['source'],
                         $targetLang,
                         $unit['content_type'] ?? 'metadata'
                     );
                     if ($translation !== $unit['source']) {
-                        $allTranslations[$unit['id']] = $translation;
+                        $metadataTranslations[$unit['id']] = $translation;
                     }
                 }
+
+                $allTranslations = array_merge($allTranslations, $metadataTranslations);
             }
 
             // Non-translatable content (mark as translated but keep original)
@@ -288,7 +344,7 @@ class BatchProcessor
                 }
             }
 
-            // Insert translations and save
+            // Insert translations and save (this handles duplicate propagation automatically)
             $parser->insertTranslations($allTranslations);
             $outputPath = $this->generateOutputPath($filePath, $targetLang, $outputFolder);
 
