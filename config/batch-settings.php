@@ -1,7 +1,6 @@
 <?php
 
 return [
-    'default_languages' => [ 'en', 'de', 'fr', 'it' ], // All languages since user wants all
     'default_output_folder' => 'translated/',
 
     // File discovery settings
@@ -31,5 +30,7 @@ return [
 
     // Batch limits (for very large batches)
     'max_files_per_batch' => 1000,
-    'max_jobs_per_batch' => 4000, // files × languages
+
+    // Note: Each file is processed once to its designated target language
+    // No multiplication by language count needed
 ];

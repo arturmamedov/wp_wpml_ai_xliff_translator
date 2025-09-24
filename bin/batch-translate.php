@@ -8,31 +8,36 @@ use NestsHostels\XLIFFTranslation\Utils\Logger;
 use NestsHostels\XLIFFTranslation\Utils\BatchProcessor;
 
 /**
- * Batch XLIFF Translation Script
- * Usage: php bin/batch-translate.php input/folder/ [--provider=claude] [--languages=en,de,fr] [--resume=batch_id]
+ * Batch XLIFF Translation Script - Auto-detects target language from each file
+ * Usage: php bin/batch-translate.php input/folder/ [--provider=claude] [--output=path] [--resume=batch_id]
  */
 
 // Parse command line arguments
-$options = getopt("", [ "provider:", "languages:", "output:", "resume:", "help" ]);
-$inputFolder = $argv[1] ?? null;
+$options = getopt("", [ "provider:", "output:", "resume:", "help" ]);
+$inputFolder = $argv[1] ?? 'input/';
 
 // Help message
 if (isset($options['help']) || ! $inputFolder) {
     echo "🚀 BATCH XLIFF Translation Script - Nests Hostels\n\n";
     echo "Usage: php bin/batch-translate.php input/folder/ [options]\n\n";
+    echo "This script automatically detects the target language from each XLIFF file\n";
+    echo "and translates it to that specific language (no need to specify languages).\n\n";
     echo "Options:\n";
     echo "  --provider=<provider>      Translation provider (openai|claude) [default: openai]\n";
-    echo "  --languages=<langs>        Target languages (en,de,fr,it) [default: en]\n";
     echo "  --output=<path>           Output folder [default: translated/]\n";
     echo "  --resume=<batch_id>       Resume failed batch by ID\n";
     echo "  --help                    Show this help message\n\n";
     echo "Examples:\n";
     echo "  php bin/batch-translate.php input/xliff-files/\n";
-    echo "  php bin/batch-translate.php input/ --provider=openai --languages=en,de,fr,it\n";
+    echo "  php bin/batch-translate.php input/ --provider=openai\n";
     echo "  php bin/batch-translate.php input/ --resume=2024-01-15_14-30-25\n\n";
+    echo "XLIFF File Processing:\n";
+    echo "  • Each .xliff file contains its target language (es→en, es→de, etc.)\n";
+    echo "  • Script automatically detects and processes to correct language\n";
+    echo "  • No language conflicts - each file processed exactly once\n\n";
     echo "Output Structure (configurable in config/batch-settings.php):\n";
     echo "  translated/en/    - English translations\n";
-    echo "  translated/de/    - German translations\n";
+    echo "  translated/de/    - German translations  \n";
     echo "  translated/fr/    - French translations\n";
     echo "  translated/it/    - Italian translations\n\n";
     exit(0);
@@ -56,9 +61,6 @@ try {
 
     // Configure batch settings
     $provider = $options['provider'] ?? $config['default_provider'];
-    $languages = isset($options['languages'])
-        ? explode(',', $options['languages'])
-        : $batchConfig['default_languages']; // Use batch config default
     $outputFolder = $options['output'] ?? $batchConfig['default_output_folder'];
 
     // Check API keys
@@ -86,15 +88,13 @@ try {
     echo "Provider: {$provider}\n";
     echo "Input folder: {$inputFolder}\n";
     echo "Output folder: {$outputFolder}\n";
-    echo "Target languages: " . implode(', ', $languages) . "\n";
     echo "Files found: " . count($xliffFiles) . "\n";
-    echo "Total jobs: " . (count($xliffFiles) * count($languages)) . "\n";
+    echo "Processing: Each file to its designated target language\n";
     echo str_repeat("=", 50) . "\n\n";
 
     // Process batch
     $results = $batchProcessor->processBatch([
         'files' => $xliffFiles,
-        'languages' => $languages,
         'provider' => $provider,
         'output_folder' => $outputFolder,
         'batch_id' => $batchId,
@@ -106,12 +106,19 @@ try {
     echo str_repeat("=", 50) . "\n";
     echo "Batch ID: {$batchId}\n";
     echo "Total files: " . count($xliffFiles) . "\n";
-    echo "Target languages: " . count($languages) . "\n";
     echo "Successful translations: {$results['success_count']}\n";
     echo "Failed translations: {$results['failed_count']}\n";
     echo "Skipped (already exists): {$results['skipped_count']}\n";
     echo "Success rate: " . number_format($results['success_rate'] * 100, 1) . "%\n";
     echo "Total processing time: " . gmdate('H:i:s', $results['total_time']) . "\n";
+
+    // Show language breakdown
+    if ( ! empty($results['language_breakdown'])) {
+        echo "\nLanguage breakdown:\n";
+        foreach ($results['language_breakdown'] as $lang => $count) {
+            echo "  • {$lang}: {$count} files\n";
+        }
+    }
 
     if ( ! empty($results['failed_files'])) {
         echo "\n⚠️  FAILED FILES FOR REVIEW:\n";

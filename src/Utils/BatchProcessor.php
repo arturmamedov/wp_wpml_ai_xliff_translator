@@ -83,13 +83,12 @@ class BatchProcessor
 
 
     /**
-     * Process batch of files with progress tracking
+     * Process batch of files with automatic target language detection
      */
     public function processBatch(array $config): array
     {
         $batchId = $config['batch_id'];
         $files = $config['files'];
-        $languages = $config['languages'];
         $provider = $config['provider'];
         $outputFolder = rtrim($config['output_folder'], '/');
         $resumeMode = $config['resume'] ?? false;
@@ -98,8 +97,8 @@ class BatchProcessor
         $this->progressFile = "logs/batch-progress-{$batchId}.json";
         $this->loadBatchProgress($resumeMode);
 
-        // Calculate total jobs
-        $totalJobs = count($files) * count($languages);
+        // Each file is processed once to its designated target language
+        $totalJobs = count($files);
         $currentJob = 0;
         $startTime = time();
 
@@ -109,64 +108,82 @@ class BatchProcessor
             'skipped_count' => 0,
             'failed_files' => [],
             'success_rate' => 0,
-            'total_time' => 0
+            'total_time' => 0,
+            'language_breakdown' => [] // Track which languages were processed
         ];
 
         $this->logger->logError("=== BATCH PROCESSING STARTED ===", null);
-        $this->logger->logError("Batch ID: {$batchId} | Files: " . count($files) . " | Languages: " . implode(',', $languages), null);
+        $this->logger->logError("Batch ID: {$batchId} | Files: " . count($files), null);
 
         foreach ($files as $filePath) {
+            $currentJob++;
             $filename = basename($filePath);
 
-            foreach ($languages as $targetLang) {
-                $currentJob++;
-                $jobKey = $filename . '_' . $targetLang;
+            // Display progress
+            echo sprintf(
+                "\r🔄 [%d/%d] (%.1f%%) Processing: %s",
+                $currentJob,
+                $totalJobs,
+                ($currentJob / $totalJobs) * 100,
+                substr($filename, 0, 40)
+            );
 
-                // Display progress
-                $this->displayProgress($currentJob, $totalJobs, $startTime, $filename, $targetLang);
+            // Check if already completed (for resume functionality)
+            if ($this->isJobCompleted($filename)) {
+                $results['skipped_count']++;
+                echo " [SKIPPED - already completed]\n";
+                continue;
+            }
 
-                // Check if already completed (for resume functionality)
-                if ($this->isJobCompleted($jobKey)) {
-                    $results['skipped_count']++;
-                    echo " [SKIPPED - already completed]\n";
-                    continue;
+            // Detect target language from XLIFF file
+            try {
+                $targetLang = $this->detectTargetLanguage($filePath);
+                if ( ! $targetLang) {
+                    throw new \Exception("Could not detect target language from XLIFF file");
                 }
 
                 // Check if output file already exists
                 $outputPath = $this->generateOutputPath($filePath, $targetLang, $outputFolder);
                 if (file_exists($outputPath)) {
-                    $this->markJobCompleted($jobKey, 'skipped');
+                    $this->markJobCompleted($filename, 'skipped');
                     $results['skipped_count']++;
-                    echo " [SKIPPED - file exists]\n";
+                    echo " → {$targetLang} [SKIPPED - file exists]\n";
                     continue;
                 }
 
-                // Process single file+language combination
-                try {
-                    $success = $this->processSingleFile($filePath, $targetLang, $provider, $outputFolder);
+                echo " → {$targetLang}";
 
-                    if ($success) {
-                        $this->markJobCompleted($jobKey, 'success');
-                        $results['success_count']++;
-                        echo " [SUCCESS]\n";
-                    } else {
-                        $this->markJobCompleted($jobKey, 'failed');
-                        $results['failed_count']++;
-                        $results['failed_files'][] = $jobKey;
-                        echo " [FAILED]\n";
+                // Process single file to its designated target language
+                $success = $this->processSingleFile($filePath, $targetLang, $provider, $outputFolder);
+
+                if ($success) {
+                    $this->markJobCompleted($filename, 'success');
+                    $results['success_count']++;
+
+                    // Track language breakdown
+                    if ( ! isset($results['language_breakdown'][$targetLang])) {
+                        $results['language_breakdown'][$targetLang] = 0;
                     }
+                    $results['language_breakdown'][$targetLang]++;
 
-                } catch (Exception $e) {
-                    $this->markJobCompleted($jobKey, 'error');
+                    echo " [SUCCESS]\n";
+                } else {
+                    $this->markJobCompleted($filename, 'failed');
                     $results['failed_count']++;
-                    $results['failed_files'][] = $jobKey . ' - ' . $e->getMessage();
-                    $this->logger->logError("Job failed: {$jobKey} - " . $e->getMessage(), null);
-                    echo " [ERROR: " . substr($e->getMessage(), 0, 50) . "]\n";
+                    $results['failed_files'][] = $filename . ' → ' . $targetLang;
+                    echo " [FAILED]\n";
                 }
 
-                // Save progress after each job
-                $this->saveBatchProgress();
+            } catch (\Exception $e) {
+                $this->markJobCompleted($filename, 'error');
+                $results['failed_count']++;
+                $results['failed_files'][] = $filename . ' - ' . $e->getMessage();
+                $this->logger->logError("Job failed: {$filename} - " . $e->getMessage(), null);
+                echo " [ERROR: " . substr($e->getMessage(), 0, 50) . "]\n";
             }
+
+            // Save progress after each job
+            $this->saveBatchProgress();
         }
 
         // Calculate final statistics
@@ -178,7 +195,46 @@ class BatchProcessor
         $this->logger->logError("=== BATCH PROCESSING COMPLETED ===", null);
         $this->logger->logError("Success: {$results['success_count']} | Failed: {$results['failed_count']} | Skipped: {$results['skipped_count']}", null);
 
+        // Log language breakdown
+        foreach ($results['language_breakdown'] as $lang => $count) {
+            $this->logger->logError("Language {$lang}: {$count} files processed", null);
+        }
+
         return $results;
+    }
+
+
+    /**
+     * Detect target language from XLIFF file content
+     */
+    private function detectTargetLanguage(string $filePath): ?string
+    {
+        try {
+            // Use existing XLIFFParser to read language info
+            $tempLogger = new Logger('logs', 'temp-detection');
+            $parser = new XLIFFParser($tempLogger);
+
+            // Just parse to get language info, don't process
+            $dom = new \DOMDocument();
+            if ( ! $dom->load($filePath)) {
+                return null;
+            }
+
+            $xpath = new \DOMXPath($dom);
+            $xpath->registerNamespace('xliff', 'urn:oasis:names:tc:xliff:document:1.2');
+
+            $fileNode = $xpath->query('//xliff:file')->item(0);
+            if ( ! $fileNode) {
+                return null;
+            }
+
+            return $fileNode->getAttribute('target-language') ?: null;
+
+        } catch (\Exception $e) {
+            $this->logger->logError("Failed to detect target language from {$filePath}: " . $e->getMessage(), null);
+
+            return null;
+        }
     }
 
 
@@ -290,21 +346,20 @@ class BatchProcessor
 
 
     /**
-     * Display real-time progress
+     * Display real-time progress - simplified for single language per file
      */
-    private function displayProgress(int $current, int $total, int $startTime, string $currentFile, string $targetLang): void
+    private function displayProgress(int $current, int $total, int $startTime, string $currentFile): void
     {
         $elapsed = time() - $startTime;
         $rate = $current > 0 ? $current / max($elapsed, 1) : 0;
         $eta = $total > $current && $rate > 0 ? ($total - $current) / $rate : 0;
 
         $progress = sprintf(
-            "\r🔄 [%d/%d] (%.1f%%) %s → %s | ETA: %s",
+            "🔄 [%d/%d] (%.1f%%) %s | ETA: %s",
             $current,
             $total,
             ($current / $total) * 100,
-            substr(basename($currentFile), 0, 20),
-            $targetLang,
+            substr(basename($currentFile), 0, 30),
             $eta > 0 ? gmdate('H:i:s', $eta) : 'calculating...'
         );
 
