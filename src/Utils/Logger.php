@@ -17,6 +17,8 @@ class Logger
 
     private array $sessionStats = [];
 
+    public $filename = '';
+
 
     public function __construct(string $logDir = 'logs', ?string $filename = null)
     {
