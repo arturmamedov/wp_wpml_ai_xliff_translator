@@ -28,6 +28,8 @@ class XLIFFParser
 
     private array $nonTranslatableRules;
 
+    private array $translationConfig;
+
     private array $translationUnits = [];
 
     private array $duplicateMap = [];
