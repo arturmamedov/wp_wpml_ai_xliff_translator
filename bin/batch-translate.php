@@ -21,15 +21,20 @@ if (isset($options['help']) || ! $inputFolder) {
     echo "🚀 BATCH XLIFF Translation Script - Nests Hostels\n\n";
     echo "Usage: php bin/batch-translate.php input/folder/ [options]\n\n";
     echo "Options:\n";
-    echo "  --provider=<provider>      Translation provider (openai|claude) [default: claude]\n";
+    echo "  --provider=<provider>      Translation provider (openai|claude) [default: openai]\n";
     echo "  --languages=<langs>        Target languages (en,de,fr,it) [default: en]\n";
     echo "  --output=<path>           Output folder [default: translated/]\n";
     echo "  --resume=<batch_id>       Resume failed batch by ID\n";
     echo "  --help                    Show this help message\n\n";
     echo "Examples:\n";
     echo "  php bin/batch-translate.php input/xliff-files/\n";
-    echo "  php bin/batch-translate.php input/ --provider=claude --languages=en,de,fr\n";
+    echo "  php bin/batch-translate.php input/ --provider=openai --languages=en,de,fr,it\n";
     echo "  php bin/batch-translate.php input/ --resume=2024-01-15_14-30-25\n\n";
+    echo "Output Structure (configurable in config/batch-settings.php):\n";
+    echo "  translated/en/    - English translations\n";
+    echo "  translated/de/    - German translations\n";
+    echo "  translated/fr/    - French translations\n";
+    echo "  translated/it/    - Italian translations\n\n";
     exit(0);
 }
 
@@ -42,6 +47,7 @@ if ( ! is_dir($inputFolder)) {
 try {
     // Load configuration
     $config = require __DIR__ . '/../config/translation-api.php';
+    $batchConfig = require __DIR__ . '/../config/batch-settings.php';
 
     // Initialize batch processor
     $batchId = $options['resume'] ?? date('Y-m-d_H-i-s');
@@ -52,8 +58,8 @@ try {
     $provider = $options['provider'] ?? $config['default_provider'];
     $languages = isset($options['languages'])
         ? explode(',', $options['languages'])
-        : [ 'en' ]; // Default to English only
-    $outputFolder = $options['output'] ?? 'translated/';
+        : $batchConfig['default_languages']; // Use batch config default
+    $outputFolder = $options['output'] ?? $batchConfig['default_output_folder'];
 
     // Check API keys
     $providerConfig = $config['providers'][$provider];

@@ -25,11 +25,14 @@ class BatchProcessor
 
     private array $batchProgress = [];
 
+    private array $batchConfig;
+
 
     public function __construct(array $config, Logger $logger)
     {
         $this->config = $config;
         $this->logger = $logger;
+        $this->batchConfig = require __DIR__ . '/../../config/batch-settings.php';
     }
 
 
@@ -39,9 +42,10 @@ class BatchProcessor
     public function discoverXLIFFFiles(string $inputFolder): array
     {
         $inputFolder = rtrim($inputFolder, '/');
-        $extensions = [ '*.xliff', '*.xlf' ];
+        $extensions = array_map(fn($ext) => "*.$ext", $this->batchConfig['supported_extensions']);
         $files = [];
 
+        // Scan main directory
         foreach ($extensions as $ext) {
             $foundFiles = glob($inputFolder . '/' . $ext);
             if ($foundFiles) {
@@ -49,13 +53,21 @@ class BatchProcessor
             }
         }
 
-        // Also check subdirectories (one level deep)
-        $subdirs = glob($inputFolder . '/*', GLOB_ONLYDIR);
-        foreach ($subdirs as $subdir) {
-            foreach ($extensions as $ext) {
-                $foundFiles = glob($subdir . '/' . $ext);
-                if ($foundFiles) {
-                    $files = array_merge($files, $foundFiles);
+        // Scan subdirectories if enabled
+        if ($this->batchConfig['scan_subdirectories']) {
+            $maxDepth = $this->batchConfig['max_subdirectory_depth'];
+
+            for ($depth = 1; $depth <= $maxDepth; $depth++) {
+                $pattern = str_repeat('/*', $depth);
+                $subdirs = glob($inputFolder . $pattern, GLOB_ONLYDIR);
+
+                foreach ($subdirs as $subdir) {
+                    foreach ($extensions as $ext) {
+                        $foundFiles = glob($subdir . '/' . $ext);
+                        if ($foundFiles) {
+                            $files = array_merge($files, $foundFiles);
+                        }
+                    }
                 }
             }
         }
@@ -238,18 +250,42 @@ class BatchProcessor
 
 
     /**
-     * Generate output file path
+     * Generate output file path based on batch configuration
      */
     private function generateOutputPath(string $inputPath, string $targetLang, string $outputFolder): string
     {
         $pathInfo = pathinfo($inputPath);
-        $outputDir = $outputFolder . '/' . $targetLang;
 
+        // Determine output directory structure
+        if ($this->batchConfig['organize_by_language']) {
+            $outputDir = $outputFolder . '/' . $targetLang;
+        } else {
+            $outputDir = $outputFolder;
+        }
+
+        // Handle preserve folder structure
+        if ($this->batchConfig['preserve_folder_structure']) {
+            $relativePath = str_replace(dirname(dirname($inputPath)), '', dirname($inputPath));
+            $relativePath = trim($relativePath, '/');
+            if ($relativePath) {
+                $outputDir .= '/' . $relativePath;
+            }
+        }
+
+        // Create directory if it doesn't exist
         if ( ! is_dir($outputDir)) {
             mkdir($outputDir, 0755, true);
         }
 
-        return $outputDir . '/' . $pathInfo['filename'] . '_' . $targetLang . '.xliff';
+        // Generate filename from pattern
+        $pattern = $this->batchConfig['output_filename_pattern'];
+        $outputFilename = str_replace(
+            [ '{filename}', '{language}' ],
+            [ $pathInfo['filename'], $targetLang ],
+            $pattern
+        );
+
+        return $outputDir . '/' . $outputFilename;
     }
 
 

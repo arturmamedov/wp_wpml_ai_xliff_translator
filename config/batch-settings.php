@@ -1,13 +1,13 @@
 <?php
 
 return [
-    'default_languages' => [ 'en' ], // Default if not specified
+    'default_languages' => [ 'en', 'de', 'fr', 'it' ], // All languages since user wants all
     'default_output_folder' => 'translated/',
 
     // File discovery settings
     'supported_extensions' => [ 'xliff', 'xlf' ],
     'scan_subdirectories' => true,
-    'max_subdirectory_depth' => 1,
+    'max_subdirectory_depth' => 2, // Increased for your nested structure
 
     // Batch processing settings
     'resume_capability' => true,
@@ -20,9 +20,9 @@ return [
     'log_failed_files' => true,
 
     // Output organization
-    'organize_by_language' => false, // Create subfolders: translated/en/, translated/de/
-    'preserve_folder_structure' => false, // Keep input folder structure in output
-    'output_filename_pattern' => '{filename}_{language}.xliff',
+    'organize_by_language' => false, // true for Create language folders to avoid overwrites
+    'preserve_folder_structure' => true, // Keep your WP-NestsHostels-translation-job-XX-XX/ structure
+    'output_filename_pattern' => '{filename}.xliff', // Keep original names exactly
 
     // Progress reporting
     'show_realtime_progress' => true,
