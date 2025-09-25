@@ -125,7 +125,11 @@ class BrandVoiceTranslator
 
             $translation = $this->handleApiCall($systemPrompt, $userPrompt);
 
-            $cache->set($cacheKey, $translation);
+            $cache->set($cacheKey, $translation, [
+                'provider' => $this->currentProvider,
+                'content_type' => 'brand_voice',
+                'xliff_file' => $this->logger->filename ?: 'unknown'
+            ]);
 
             // Apply glossary validation to protect brand terms
             //$translation = $this->validateGlossaryTerms($text, $translation);
@@ -167,7 +171,11 @@ class BrandVoiceTranslator
 
             $translation = $this->handleApiCall($systemPrompt, $userPrompt);
 
-            $cache->set($cacheKey, $translation);
+            $cache->set($cacheKey, $translation, [
+                'provider' => $this->currentProvider,
+                'content_type' => 'metadata',
+                'xliff_file' => $this->logger->filename ?: 'unknown'
+            ]);
 
             // Apply glossary validation to protect brand terms
             //$translation = $this->validateGlossaryTerms($text, $translation);

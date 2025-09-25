@@ -33,17 +33,34 @@ class TranslationCache
             return null;
         }
 
-        return $this->cache[$key] ?? null;
+        $cached = $this->cache[$key] ?? null;
+
+        // Backward compatibility: handle both old string format and new array format
+        if (is_string($cached)) {
+            return $cached; // Old format
+        } elseif (is_array($cached) && isset($cached['translation'])) {
+            return $cached['translation']; // New format
+        }
+
+        return null;
     }
 
 
-    public function set(string $key, string $value): void
+    public function set(string $key, string $translation, array $metadata = []): void
     {
         if ( ! $this->enabled) {
             return;
         }
 
-        $this->cache[$key] = $value;
+        // Store with metadata
+        $this->cache[$key] = [
+            'translation' => $translation,
+            'created_at' => date('Y-m-d H:i:s'),
+            'provider' => $metadata['provider'] ?? 'unknown',
+            'content_type' => $metadata['content_type'] ?? 'general',
+            'xliff_file' => $metadata['xliff_file'] ?? 'unknown'
+        ];
+
         $this->saveCache();
     }
 
