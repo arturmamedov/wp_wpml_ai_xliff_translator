@@ -3,6 +3,7 @@
 namespace NestsHostels\XLIFFTranslation\Core;
 
 use NestsHostels\XLIFFTranslation\Utils\Logger;
+use NestsHostels\XLIFFTranslation\Utils\TranslationCache;
 
 /**
  * BrandVoiceTranslator - Multi-provider translation with Nests Hostels brand voice
@@ -23,6 +24,10 @@ class BrandVoiceTranslator
 
     private array $glossaryTerms;
 
+    private TranslationCache $cache;
+
+    private array $languageCaches = [];
+
 
     public function __construct(array $config, Logger $logger)
     {
@@ -30,6 +35,11 @@ class BrandVoiceTranslator
         $this->logger = $logger;
         $this->currentProvider = $config['default_provider'];
         $this->loadGlossaryTerms();
+
+        // Initialize cache
+        $translationConfig = require __DIR__ . '/../../config/translation-settings.php';
+        // We'll initialize cache per language in translation methods
+        $this->translationConfig = $translationConfig; // Store for later use with $target_language already defined
     }
 
 
@@ -78,6 +88,20 @@ class BrandVoiceTranslator
     }
 
 
+    private function getCacheForLanguage(string $targetLanguage): TranslationCache
+    {
+        $cacheKey = strtolower($targetLanguage);
+
+        if ( ! isset($this->languageCaches[$cacheKey])) {
+            $cacheFile = str_replace('{language}', $cacheKey,
+                $this->translationConfig['cache_file_pattern'] ?? 'cache/translations-{language}.json');
+            $this->languageCaches[$cacheKey] = new TranslationCache($cacheFile, $this->translationConfig['cache_enabled'] ?? false);
+        }
+
+        return $this->languageCaches[$cacheKey];
+    }
+
+
     /**
      * Translate single brand voice content unit with glossary protection
      */
@@ -89,7 +113,19 @@ class BrandVoiceTranslator
             $systemPrompt = $this->config['prompts']['system'];
             $userPrompt = $this->buildBrandVoicePrompt($text, $targetLanguage, $context);
 
+            $cache = $this->getCacheForLanguage($targetLanguage);
+            $cacheKey = md5($text . '|' . strtolower($targetLanguage) . '|brand_voice');
+
+            $translation = $cache->get($cacheKey);
+            if ($translation !== null) {
+                $this->logger->logTranslationApplied('cached', $text, $translation);
+
+                return $translation;
+            }
+
             $translation = $this->handleApiCall($systemPrompt, $userPrompt);
+
+            $cache->set($cacheKey, $translation);
 
             // Apply glossary validation to protect brand terms
             //$translation = $this->validateGlossaryTerms($text, $translation);
@@ -119,7 +155,19 @@ class BrandVoiceTranslator
             $systemPrompt = $this->config['prompts']['system'];
             $userPrompt = $this->buildMetadataPrompt($text, $targetLanguage, $seoType);
 
+            $cache = $this->getCacheForLanguage($targetLanguage);
+            $cacheKey = md5($text . '|' . strtolower($targetLanguage) . '|metadata');
+
+            $translation = $cache->get($cacheKey);
+            if ($translation !== null) {
+                $this->logger->logTranslationApplied('cached', $text, $translation);
+
+                return $translation;
+            }
+
             $translation = $this->handleApiCall($systemPrompt, $userPrompt);
+
+            $cache->set($cacheKey, $translation);
 
             // Apply glossary validation to protect brand terms
             //$translation = $this->validateGlossaryTerms($text, $translation);
@@ -177,6 +225,11 @@ class BrandVoiceTranslator
      */
     private function handleApiCall(string $systemPrompt, string $userPrompt): string
     {
+        /*$result = match ($this->currentProvider) {
+            'openai' => $this->callOpenAI($systemPrompt, $userPrompt),
+            'claude' => $this->callClaude($systemPrompt, $userPrompt),
+            default => throw new \Exception("Unsupported provider: {$this->currentProvider}")
+        };*/
         switch ($this->currentProvider) {
             case 'openai':
                 return $this->callOpenAI($systemPrompt, $userPrompt);
